@@ -2,23 +2,29 @@
 
 Directorio de negocios locales. Monorepo con backend NestJS y frontend Next.js.
 
-**Ramas:** `main` tiene solo el **sitio web**, que se adapta al tamaño de la ventana (computadora, tablet o ventana angosta). La versión anterior con diseño de app de celular quedó guardada en la rama `movil` (`git checkout movil` para verla).
+**Ramas:** `main` tiene solo el **sitio web**, que se adapta al tamaño de la ventana. La versión con diseño de app de celular está en la rama `movil`, y el backend anterior con SQLite en `backend-sqlite`.
 
 ```
 divika/
-├── backend/    NestJS + TypeORM + SQLite   → http://localhost:3001
-├── frontend/   Next.js (App Router)        → http://localhost:3000
-└── docs/       API y base de datos
+├── backend/    NestJS + TypeORM + PostgreSQL/PostGIS   → http://localhost:3001
+├── frontend/   Next.js (App Router)                    → http://localhost:3000
+└── docs/       API, base de datos y diagrama (divika.dbml)
 ```
 
+La base sigue el diagrama del equipo de backend ([`docs/divika.dbml`](docs/divika.dbml)) más 10 tablas extra; detalle en [`docs/base-de-datos.md`](docs/base-de-datos.md).
+
 ## Cómo correrlo (Node 20 o más nuevo)
+
+**1. Base de datos PostgreSQL.** La forma más fácil es una base gratis en [Neon](https://neon.tech) (no instalas nada y es la misma que usarás en la nube): crea un proyecto, copia la *connection string* y pégala en `DATABASE_URL`. Si prefieres local, instala PostgreSQL con la extensión PostGIS y crea una base vacía.
+
+**2. Backend y front:**
 
 ```bash
 # Terminal 1
 cd backend
-cp .env.example .env      # y cambia JWT_SECRET
+cp .env.example .env      # pon DATABASE_URL y cambia JWT_SECRET
 npm install
-npm run start:dev
+npm run start:dev         # crea las tablas solo (migraciones) y 48 negocios de ejemplo
 
 # Terminal 2
 cd frontend
@@ -27,9 +33,9 @@ npm install
 npm run dev
 ```
 
-Abre http://localhost:3000. La base (`backend/divika.sqlite`) se crea sola con 8 negocios de ejemplo.
+Abre http://localhost:3000.
 
-**Datos de ejemplo:** se crean solo cuando la base está vacía (48 negocios, 4 por categoría). Si ya tenías una base de una versión anterior, sus categorías viejas se convierten solas; para tener también los negocios de ejemplo nuevos, borra `backend/divika.sqlite` y reinicia el backend (tendrás que volver a registrarte).
+**Si venías de la versión con SQLite:** las sesiones guardadas ya no sirven (los ids ahora son uuid). El sitio te regresa al login; vuelve a registrarte.
 
 **Códigos de verificación:** aún no se envían por SMS ni correo. Al pedir un código, búscalo en la terminal del backend (`[CÓDIGO SIMULADO] Código para ...: 1234`).
 
@@ -44,11 +50,19 @@ Abre http://localhost:3000. La base (`backend/divika.sqlite`) se crea sola con 8
 | Categorías y subcategorías      | `backend/src/modules/negocios/categorias.ts` (el frontend las lee de `GET /categorias`) |
 | Icono de una categoría          | `frontend/src/components/home/categoriaIconos.tsx` |
 | Campos de registro              | `backend/src/modules/auth/dto.ts` + `frontend/src/components/forms/` |
-| Tablas de la base               | `backend/src/modules/**/*.entity.ts` (ver `docs/base-de-datos.md`) |
+| Tablas de la base               | `backend/src/entidades/` + una migración nueva (ver `docs/base-de-datos.md`) |
 
-## Cambiar de SQLite a PostgreSQL o MySQL
-En `backend/src/app.module.ts` reemplaza el bloque `TypeOrmModule.forRoot` y instala el driver (`npm i pg` o `npm i mysql2`).
+## Subirlo a la nube (gratis)
+
+| Parte | Servicio | Qué configurar |
+|---|---|---|
+| Base de datos | [Neon](https://neon.tech) | Crear proyecto y copiar la connection string (`...?sslmode=require`) |
+| Backend | [Render](https://render.com) | *New → Blueprint* con este repo (usa `render.yaml`). Variables: `DATABASE_URL` (Neon), `FRONTEND_URL` (la de Vercel), `PUBLIC_URL` (la de Render), `CLOUDINARY_URL` |
+| Fotos | [Cloudinary](https://cloudinary.com) | Copiar la "API environment variable" a `CLOUDINARY_URL` (Render borra el disco al reiniciar) |
+| Frontend | [Vercel](https://vercel.com) | Importar el repo con *Root Directory* `frontend` y `NEXT_PUBLIC_API_URL` = URL de Render |
+
+El plan gratis de Render duerme el backend tras 15 min sin uso; la primera petición tarda cerca de un minuto. Antes de una presentación, abre la página un par de minutos antes.
 
 ## Documentación
 - [API](docs/api.md)
-- [Base de datos](docs/base-de-datos.md)
+- [Base de datos](docs/base-de-datos.md) · [diagrama original](docs/divika.dbml) · [diagrama completo](docs/divika-completo.dbml)

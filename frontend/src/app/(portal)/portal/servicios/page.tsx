@@ -9,7 +9,7 @@ import { api } from '@/lib/api';
 import { pesos } from '@/lib/reservas';
 import type { Modalidad, Servicio } from '@/types';
 
-type Form = { id?: number; nombre: string; descripcion: string; precio: string; duracionMin: string; categoria: string; modalidad: Modalidad; costoTraslado: string; indicaciones: string; fotoUrl: string | null };
+type Form = { id?: string; nombre: string; descripcion: string; precio: string; duracionMin: string; categoria: string; modalidad: Modalidad; costoTraslado: string; indicaciones: string; fotoUrl: string | null };
 const VACIO: Form = { nombre: '', descripcion: '', precio: '', duracionMin: '60', categoria: '', modalidad: 'local', costoTraslado: '', indicaciones: '', fotoUrl: null };
 const MODALIDADES: [Modalidad, string][] = [['local', 'En mi negocio'], ['domicilio', 'A domicilio'], ['ambos', 'Ambas']];
 const ETIQUETA: Record<Modalidad, string> = { local: 'En el negocio', domicilio: 'A domicilio', ambos: 'Negocio o domicilio' };
@@ -48,7 +48,7 @@ export default function Servicios() {
   function elegirFoto(f?: File) {
     if (!f) return;
     if (!/^image\/(jpeg|png)$/.test(f.type)) return setError('Solo se aceptan fotos JPG o PNG');
-    if (f.size > 10 * 1024 * 1024) return setError('La foto puede pesar máximo 10 MB');
+    if (f.size > 5 * 1024 * 1024) return setError('La foto puede pesar máximo 5 MB');
     setError('');
     setFoto(f);
   }
@@ -133,7 +133,7 @@ export default function Servicios() {
               </span>
             </div>
             <input ref={entrada} type="file" accept="image/jpeg,image/png" hidden onChange={(e) => { elegirFoto(e.target.files?.[0]); e.target.value = ''; }} />
-            <small>JPG o PNG, máximo 10 MB.</small>
+            <small>JPG o PNG, máximo 5 MB.</small>
           </div>
 
           <div className="cita__acciones p-campo--ancho">

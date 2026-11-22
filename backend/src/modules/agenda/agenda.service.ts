@@ -1,35 +1,21 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
-import { Negocio } from '../negocios/negocio.entity';
-import { NotificacionesService } from '../notificaciones/notificaciones.service';
-import { Resena } from '../resenas/resena.entity';
-import { Usuario } from '../usuarios/usuario.entity';
-import { Cita } from './cita.entity';
-import { CrearCitaDto, MensajeDto, ProponerHorarioDto, ServicioDto } from './dto';
-import { Mensaje } from './mensaje.entity';
-import { Servicio } from './servicio.entity';
-import { DIAS, HORARIO_INICIAL, REGLAS_INICIALES, ahoraLocal, aHora, aMin, horasDelDia, reglasDe } from './disponibilidad';
-import { DisponibilidadDto } from './dto';
+import { DataSource, In, IsNull, Not, Repository } from 'typeorm';
+import { NegocioVistaService } from '../../base/negocio-vista.service';
+import { NotificacionesService } from '../../base/notificaciones.service';
+import { borrarFoto, guardarFoto } from '../../common/almacenamiento';
+import { Cita, DetalleNegocio, HorarioNegocio, Mensaje, Negocio, Resena, RespuestaResena, Servicio, Usuario } from '../../entidades';
+import { CrearCitaDto, DisponibilidadDto, MensajeDto, ProponerHorarioDto, ServicioDto } from './dto';
+import { DIAS, HORARIO_INICIAL, REGLAS_INICIALES, AgendaNegocio, ahoraLocal, aMin, horasDelDia, reglasDe } from './disponibilidad';
 
 const hoy = () => ahoraLocal().fecha;
+const hhmm = (t: string | null) => (t ? t.slice(0, 5) : null);
 const fCorta = (f: string) => new Date(`${f}T12:00:00Z`).toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
 
-// Nunca se devuelve el usuario completo (traería el hash de la contraseña)
-const salida = (c: Cita) => ({
-  id: c.id,
-  estado: c.estado,
-  fecha: c.fecha,
-  hora: c.hora,
-  personas: c.personas,
-  notas: c.notas,
-  metodoPago: c.metodoPago,
-  propuestaFecha: c.propuestaFecha,
-  propuestaHora: c.propuestaHora,
-  creadoEn: c.creadoEn,
-  servicio: c.servicio ? { id: c.servicio.id, nombre: c.servicio.nombre, precio: c.servicio.precio, duracionMin: c.servicio.duracionMin } : null,
-  negocio: { id: c.negocio.id, nombre: c.negocio.nombre, imagenUrl: c.negocio.imagenUrl, direccion: c.negocio.direccion, telefono: c.negocio.telefono },
-  cliente: { id: c.cliente.id, nombre: c.cliente.nombre, telefono: c.cliente.telefono },
+// Servicio con los nombres de campo de la API
+export const servicioApi = (s: Servicio) => ({
+  id: s.id, nombre: s.name, descripcion: s.description, precio: s.price, duracionMin: s.durationMin, activo: s.isActive,
+  categoria: s.category, modalidad: s.modality, costoTraslado: s.travelFee, indicaciones: s.instructions, fotoUrl: s.photoUrl, creadoEn: s.createdAt,
 });
 
 // Servicios, citas y mensajes entre clientes y negocios
@@ -39,284 +25,320 @@ export class AgendaService {
     @InjectRepository(Servicio) private servicios: Repository<Servicio>,
     @InjectRepository(Cita) private citas: Repository<Cita>,
     @InjectRepository(Mensaje) private mensajes: Repository<Mensaje>,
-    @InjectRepository(Negocio) private negocios: Repository<Negocio>,
     @InjectRepository(Resena) private resenas: Repository<Resena>,
+    @InjectRepository(RespuestaResena) private respuestas: Repository<RespuestaResena>,
+    @InjectRepository(Usuario) private usuarios: Repository<Usuario>,
+    @InjectRepository(DetalleNegocio) private detalles: Repository<DetalleNegocio>,
+    private vistas: NegocioVistaService,
     private avisos: NotificacionesService,
+    private ds: DataSource,
   ) {}
 
-  private async negocioDe(userId: number) {
-    const n = await this.negocios.findOne({ where: { owner: { id: userId } }, order: { creadoEn: 'ASC' } });
-    if (!n) throw new ForbiddenException('Tu cuenta no tiene un negocio');
-    return n;
+  private negocioDe(userId: string) {
+    return this.vistas.delDueno(userId);
+  }
+
+  // Nunca se devuelve el usuario completo (traería la contraseña)
+  private async salidas(lista: Cita[]) {
+    const negocios = await this.vistas.vistas([...new Map(lista.map((c) => [c.negocio.id, c.negocio])).values()]);
+    return lista.map((c) => {
+      const n = negocios.find((x) => x.id === c.businessId)!;
+      return {
+        id: c.id, estado: c.status, fecha: c.date, hora: hhmm(c.startTime)!, personas: c.partySize, notas: c.notes, metodoPago: c.paymentMethod,
+        propuestaFecha: c.proposedDate, propuestaHora: hhmm(c.proposedTime), creadoEn: c.createdAt,
+        servicio: c.servicio ? { id: c.servicio.id, nombre: c.servicio.name, precio: c.servicio.price, duracionMin: c.servicio.durationMin } : null,
+        negocio: { id: n.id, nombre: n.nombre, imagenUrl: n.imagenUrl, direccion: n.direccion, telefono: n.telefono },
+        cliente: { id: c.cliente.id, nombre: c.cliente.nCompleto, telefono: c.cliente.telefono },
+      };
+    });
+  }
+
+  private async salida(c: Cita) {
+    return (await this.salidas([c]))[0];
+  }
+
+  private cargarCita(where: Record<string, unknown>) {
+    return this.citas.findOne({ where, relations: { negocio: true, cliente: true, servicio: true } });
   }
 
   // ---------- Servicios ----------
-  serviciosPublicos(negocioId: number) {
-    return this.servicios.find({ where: { negocio: { id: negocioId }, activo: true }, order: { creadoEn: 'ASC' } });
+  async serviciosPublicos(negocioId: string) {
+    const l = await this.servicios.find({ where: { businessId: negocioId, isActive: true }, order: { createdAt: 'ASC' } });
+    return l.map(servicioApi);
   }
 
-  async serviciosMios(userId: number) {
+  async serviciosMios(userId: string) {
     const n = await this.negocioDe(userId);
-    return this.servicios.find({ where: { negocio: { id: n.id } }, order: { creadoEn: 'ASC' } });
+    return (await this.servicios.find({ where: { businessId: n.id }, order: { createdAt: 'ASC' } })).map(servicioApi);
   }
 
-  private datosServicio(n: Negocio, dto: ServicioDto) {
+  private async datosServicio(n: Negocio, dto: ServicioDto) {
     const modalidad = dto.modalidad ?? 'local';
-    if (modalidad !== 'local' && !n.atiendeDomicilio) {
+    if (modalidad !== 'local' && !(await this.vistas.detalle(n.id)).homeService) {
       throw new BadRequestException('Para ofrecer servicio a domicilio activa “Atiendo a domicilio” en Ubicación y cobertura');
     }
     return {
-      nombre: dto.nombre,
-      descripcion: dto.descripcion ?? null,
-      precio: dto.precio ?? null,
-      duracionMin: dto.duracionMin,
-      categoria: dto.categoria?.trim() || null,
-      modalidad,
-      costoTraslado: modalidad === 'local' ? null : dto.costoTraslado ?? null,
-      indicaciones: dto.indicaciones?.trim() || null,
-    } as const;
+      name: dto.nombre.trim(),
+      description: dto.descripcion?.trim() || null,
+      price: dto.precio ?? null,
+      durationMin: dto.duracionMin,
+      category: dto.categoria?.trim() || null,
+      modality: modalidad,
+      travelFee: modalidad === 'local' ? null : dto.costoTraslado ?? null,
+      instructions: dto.indicaciones?.trim() || null,
+    };
   }
 
-  async crearServicio(userId: number, dto: ServicioDto) {
+  async crearServicio(userId: string, dto: ServicioDto) {
     const n = await this.negocioDe(userId);
-    return this.servicios.save(this.servicios.create({ ...this.datosServicio(n, dto), activo: dto.activo ?? true, negocio: n }));
+    const s = await this.servicios.save(this.servicios.create({ ...(await this.datosServicio(n, dto)), isActive: dto.activo ?? true, businessId: n.id }));
+    return servicioApi(s);
   }
 
-  private async servicioMio(userId: number, id: number) {
+  private async servicioMio(userId: string, id: string) {
     const n = await this.negocioDe(userId);
-    const s = await this.servicios.findOne({ where: { id, negocio: { id: n.id } } });
+    const s = await this.servicios.findOneBy({ id, businessId: n.id });
     if (!s) throw new NotFoundException('Servicio no encontrado');
-    return s;
+    return { s, n };
   }
 
-  async actualizarServicio(userId: number, id: number, dto: ServicioDto) {
-    const s = await this.servicioMio(userId, id);
-    const n = await this.negocioDe(userId);
-    Object.assign(s, this.datosServicio(n, dto), { activo: dto.activo ?? s.activo });
-    return this.servicios.save(s);
+  async actualizarServicio(userId: string, id: string, dto: ServicioDto) {
+    const { s, n } = await this.servicioMio(userId, id);
+    Object.assign(s, await this.datosServicio(n, dto), { isActive: dto.activo ?? s.isActive });
+    return servicioApi(await this.servicios.save(s));
   }
 
-  async fotoServicio(userId: number, id: number, url: string | null) {
-    const s = await this.servicioMio(userId, id);
-    s.fotoUrl = url;
-    return this.servicios.save(s);
+  async fotoServicio(userId: string, id: string, archivo: Express.Multer.File | null) {
+    const { s } = await this.servicioMio(userId, id);
+    const anterior = s.photoUrl;
+    s.photoUrl = archivo ? await guardarFoto(archivo, 'divika/servicios') : null;
+    const guardado = await this.servicios.save(s);
+    await borrarFoto(anterior);
+    return servicioApi(guardado);
   }
 
-  async borrarServicio(userId: number, id: number) {
-    await this.servicios.remove(await this.servicioMio(userId, id));
+  async borrarServicio(userId: string, id: string) {
+    const { s } = await this.servicioMio(userId, id);
+    await this.servicios.remove(s);
+    await borrarFoto(s.photoUrl);
     return { ok: true };
   }
 
   // ---------- Citas ----------
-  private duracionDe(c: Cita, n: Negocio) {
-    return c.servicio?.duracionMin ?? reglasDe(n).duracionBase;
+  private duracionDe(c: Cita, a: AgendaNegocio) {
+    return c.servicio?.durationMin ?? reglasDe(a).duracionBase;
   }
 
   // ¿Se encima con una cita ya confirmada?
-  private async hayChoque(negocio: Negocio, fecha: string, hora: string, dur: number, ignorarId?: number) {
-    const c = await this.citas.find({ where: { negocio: { id: negocio.id }, fecha, estado: 'confirmada' } });
-    return c.some((x) => x.id !== ignorarId && aMin(hora) < aMin(x.hora) + this.duracionDe(x, negocio) && aMin(x.hora) < aMin(hora) + dur);
+  private async hayChoque(businessId: string, fecha: string, hora: string, dur: number, ignorarId?: string) {
+    const a = await this.vistas.agenda(businessId);
+    const c = await this.citas.find({ where: { businessId, date: fecha, status: 'confirmada' }, relations: { servicio: true } });
+    return c.some((x) => x.id !== ignorarId && aMin(hora) < aMin(x.startTime) + this.duracionDe(x, a) && aMin(x.startTime) < aMin(hora) + dur);
   }
 
   // Horas que se ofrecen a los clientes en una fecha (según horario, bloqueos y reglas del negocio)
-  async horasOcupadas(negocioId: number, fecha: string, servicioId?: number) {
-    const negocio = await this.negocios.findOneBy({ id: negocioId });
-    if (!negocio || negocio.estado !== 'publicado') throw new NotFoundException('Negocio no encontrado');
-    const servicio = servicioId ? await this.servicios.findOne({ where: { id: servicioId, negocio: { id: negocioId } } }) : null;
-    const dur = servicio?.duracionMin ?? reglasDe(negocio).duracionBase;
-    const confirmadas = await this.citas.find({ where: { negocio: { id: negocioId }, fecha, estado: 'confirmada' } });
-    const r = horasDelDia(negocio, fecha, dur, confirmadas.map((x) => ({ hora: x.hora, dur: this.duracionDe(x, negocio) })));
+  async horasOcupadas(negocioId: string, fecha: string, servicioId?: string) {
+    if (!(await this.vistas.esVisible(negocioId))) throw new NotFoundException('Negocio no encontrado');
+    const a = await this.vistas.agenda(negocioId);
+    const servicio = servicioId ? await this.servicios.findOneBy({ id: servicioId, businessId: negocioId }) : null;
+    const dur = servicio?.durationMin ?? reglasDe(a).duracionBase;
+    const confirmadas = await this.citas.find({ where: { businessId: negocioId, date: fecha, status: 'confirmada' }, relations: { servicio: true } });
+    const r = horasDelDia(a, fecha, dur, confirmadas.map((x) => ({ hora: hhmm(x.startTime)!, dur: this.duracionDe(x, a) })));
     return { fecha, abierto: r.abierto, motivo: r.abierto ? undefined : r.motivo, duracionMin: dur, horas: r.horas, ocupadas: r.horas.filter((h) => !h.libre).map((h) => h.hora) };
   }
 
-  async crearCita(clienteId: number, dto: CrearCitaDto) {
-    const negocio = await this.negocios.findOneBy({ id: dto.negocioId });
-    if (!negocio || negocio.estado !== 'publicado') throw new NotFoundException('Negocio no encontrado');
+  async crearCita(clienteId: string, dto: CrearCitaDto) {
+    if (!(await this.vistas.esVisible(dto.negocioId))) throw new NotFoundException('Negocio no encontrado');
     if (dto.fecha < hoy()) throw new BadRequestException('Elige una fecha de hoy en adelante');
     let servicio: Servicio | null = null;
     if (dto.servicioId) {
-      servicio = await this.servicios.findOne({ where: { id: dto.servicioId, negocio: { id: negocio.id }, activo: true } });
+      servicio = await this.servicios.findOneBy({ id: dto.servicioId, businessId: dto.negocioId, isActive: true });
       if (!servicio) throw new BadRequestException('Ese servicio no existe en este negocio');
     }
-    if (dto.metodoPago && negocio.metodosPago?.length && !negocio.metodosPago.includes(dto.metodoPago)) {
-      throw new BadRequestException('El negocio no acepta esa forma de pago');
-    }
-    const oferta = await this.horasOcupadas(negocio.id, dto.fecha, dto.servicioId);
+    const metodos = (await this.vistas.detalle(dto.negocioId)).paymentMethods;
+    if (dto.metodoPago && metodos?.length && !metodos.includes(dto.metodoPago)) throw new BadRequestException('El negocio no acepta esa forma de pago');
+    const oferta = await this.horasOcupadas(dto.negocioId, dto.fecha, dto.servicioId);
     if (!oferta.abierto) throw new BadRequestException(oferta.motivo ?? 'El negocio no atiende ese día');
     const h = oferta.horas.find((x) => x.hora === dto.hora);
     if (!h) throw new BadRequestException('Esa hora no está en el horario del negocio');
     if (!h.libre) throw new ConflictException('Ese horario ya no está disponible');
-    const repetida = await this.citas.findOne({ where: { negocio: { id: negocio.id }, cliente: { id: clienteId }, fecha: dto.fecha, hora: dto.hora, estado: 'solicitada' } });
+    const repetida = await this.citas.existsBy({ businessId: dto.negocioId, clientId: clienteId, date: dto.fecha, startTime: `${dto.hora}:00`, status: 'solicitada' });
     if (repetida) throw new ConflictException('Ya tienes una solicitud para ese horario');
-    const c = await this.citas.save(
-      this.citas.create({ negocio, cliente: { id: clienteId } as Usuario, servicio, fecha: dto.fecha, hora: dto.hora, personas: dto.personas, notas: dto.notas ?? null, metodoPago: dto.metodoPago ?? null, estado: 'solicitada' }),
+    const nueva = await this.citas.save(
+      this.citas.create({
+        businessId: dto.negocioId, clientId: clienteId, serviceId: servicio?.id ?? null, date: dto.fecha, startTime: dto.hora,
+        partySize: dto.personas, notes: dto.notas?.trim() || null, paymentMethod: dto.metodoPago ?? null, status: 'solicitada',
+      }),
     );
-    const completa = await this.citas.findOneByOrFail({ id: c.id });
-    await this.avisos.avisarAlDueno(negocio.id, { tipo: 'cita', titulo: `Nueva solicitud de ${completa.cliente.nombre}`, detalle: `${servicio?.nombre ?? 'Cita'} · ${fCorta(dto.fecha)} · ${dto.hora} h`, enlace: '/portal/solicitudes' });
-    return salida(completa);
+    const c = (await this.cargarCita({ id: nueva.id }))!;
+    await this.avisos.avisarAlDueno(c.businessId, { tipo: 'cita', titulo: `Nueva solicitud de ${c.cliente.nCompleto}`, detalle: `${servicio?.name ?? 'Cita'} · ${fCorta(dto.fecha)} · ${dto.hora} h`, enlace: '/portal/solicitudes' });
+    return this.salida(c);
   }
 
-  async citasDelCliente(clienteId: number) {
-    const l = await this.citas.find({ where: { cliente: { id: clienteId } }, order: { fecha: 'DESC', hora: 'DESC' } });
-    return l.map(salida);
+  async citasDelCliente(clienteId: string) {
+    const l = await this.citas.find({ where: { clientId: clienteId }, relations: { negocio: true, cliente: true, servicio: true }, order: { date: 'DESC', startTime: 'DESC' } });
+    return this.salidas(l);
   }
 
-  async citasDelNegocio(userId: number) {
+  async citasDelNegocio(userId: string) {
     const n = await this.negocioDe(userId);
-    const l = await this.citas.find({ where: { negocio: { id: n.id } }, order: { fecha: 'ASC', hora: 'ASC' } });
-    return l.map(salida);
+    const l = await this.citas.find({ where: { businessId: n.id }, relations: { negocio: true, cliente: true, servicio: true }, order: { date: 'ASC', startTime: 'ASC' } });
+    return this.salidas(l);
   }
 
-  private async citaDelNegocio(userId: number, id: number) {
+  private async citaDelNegocio(userId: string, id: string) {
     const n = await this.negocioDe(userId);
-    const c = await this.citas.findOne({ where: { id, negocio: { id: n.id } } });
+    const c = await this.cargarCita({ id, businessId: n.id });
     if (!c) throw new NotFoundException('Cita no encontrada');
     return c;
   }
 
-  async confirmar(userId: number, id: number) {
+  async confirmar(userId: string, id: string) {
     const c = await this.citaDelNegocio(userId, id);
-    if (c.estado !== 'solicitada') throw new BadRequestException('Solo puedes confirmar una solicitud pendiente');
-    if (await this.hayChoque(c.negocio, c.fecha, c.hora, this.duracionDe(c, c.negocio), c.id)) throw new ConflictException('Ya tienes una cita confirmada que se encima con ese horario');
-    c.estado = 'confirmada';
-    await this.avisos.avisar(c.cliente.id, { tipo: 'cita', titulo: `${c.negocio.nombre} confirmó tu cita`, detalle: `${fCorta(c.fecha)} · ${c.hora} h`, enlace: '/reservaciones' });
-    return salida(await this.citas.save(c));
+    if (c.status !== 'solicitada') throw new BadRequestException('Solo puedes confirmar una solicitud pendiente');
+    const dur = this.duracionDe(c, await this.vistas.agenda(c.businessId));
+    if (await this.hayChoque(c.businessId, c.date, c.startTime, dur, c.id)) throw new ConflictException('Ya tienes una cita confirmada que se encima con ese horario');
+    c.status = 'confirmada';
+    await this.citas.save(c);
+    await this.avisos.avisar(c.clientId, { tipo: 'cita', titulo: `${c.negocio.tradeName} confirmó tu cita`, detalle: `${fCorta(c.date)} · ${hhmm(c.startTime)} h`, enlace: '/reservaciones' });
+    return this.salida(c);
   }
 
-  async rechazar(userId: number, id: number) {
+  async rechazar(userId: string, id: string) {
     const c = await this.citaDelNegocio(userId, id);
-    if (c.estado !== 'solicitada') throw new BadRequestException('Solo puedes rechazar una solicitud pendiente');
-    c.estado = 'rechazada';
-    await this.avisos.avisar(c.cliente.id, { tipo: 'cita', titulo: `${c.negocio.nombre} no pudo atender tu solicitud`, detalle: `${fCorta(c.fecha)} · ${c.hora} h`, enlace: '/reservaciones' });
-    return salida(await this.citas.save(c));
+    if (c.status !== 'solicitada') throw new BadRequestException('Solo puedes rechazar una solicitud pendiente');
+    c.status = 'rechazada';
+    await this.citas.save(c);
+    await this.avisos.avisar(c.clientId, { tipo: 'cita', titulo: `${c.negocio.tradeName} no pudo atender tu solicitud`, detalle: `${fCorta(c.date)} · ${hhmm(c.startTime)} h`, enlace: '/reservaciones' });
+    return this.salida(c);
   }
 
-  async proponer(userId: number, id: number, dto: ProponerHorarioDto) {
+  async proponer(userId: string, id: string, dto: ProponerHorarioDto) {
     const c = await this.citaDelNegocio(userId, id);
-    if (c.estado !== 'solicitada') throw new BadRequestException('Solo puedes proponer otro horario en una solicitud pendiente');
+    if (c.status !== 'solicitada') throw new BadRequestException('Solo puedes proponer otro horario en una solicitud pendiente');
     if (dto.fecha < hoy()) throw new BadRequestException('Elige una fecha de hoy en adelante');
-    if (await this.hayChoque(c.negocio, dto.fecha, dto.hora, this.duracionDe(c, c.negocio), c.id)) throw new ConflictException('Ya tienes una cita confirmada que se encima con ese horario');
-    c.estado = 'propuesta';
-    c.propuestaFecha = dto.fecha;
-    c.propuestaHora = dto.hora;
-    await this.avisos.avisar(c.cliente.id, { tipo: 'cita', titulo: `${c.negocio.nombre} te propone otro horario`, detalle: `${fCorta(dto.fecha)} · ${dto.hora} h`, enlace: '/reservaciones' });
-    return salida(await this.citas.save(c));
+    const dur = this.duracionDe(c, await this.vistas.agenda(c.businessId));
+    if (await this.hayChoque(c.businessId, dto.fecha, dto.hora, dur, c.id)) throw new ConflictException('Ya tienes una cita confirmada que se encima con ese horario');
+    c.status = 'propuesta';
+    c.proposedDate = dto.fecha;
+    c.proposedTime = dto.hora;
+    await this.citas.save(c);
+    await this.avisos.avisar(c.clientId, { tipo: 'cita', titulo: `${c.negocio.tradeName} te propone otro horario`, detalle: `${fCorta(dto.fecha)} · ${dto.hora} h`, enlace: '/reservaciones' });
+    return this.salida(c);
   }
 
-  async aceptarPropuesta(clienteId: number, id: number) {
-    const c = await this.citas.findOne({ where: { id, cliente: { id: clienteId } } });
+  async aceptarPropuesta(clienteId: string, id: string) {
+    const c = await this.cargarCita({ id, clientId: clienteId });
     if (!c) throw new NotFoundException('Cita no encontrada');
-    if (c.estado !== 'propuesta' || !c.propuestaFecha || !c.propuestaHora) throw new BadRequestException('Esta cita no tiene una propuesta pendiente');
-    if (await this.hayChoque(c.negocio, c.propuestaFecha, c.propuestaHora, this.duracionDe(c, c.negocio), c.id)) throw new ConflictException('Ese horario ya no está disponible');
-    c.fecha = c.propuestaFecha;
-    c.hora = c.propuestaHora;
-    c.propuestaFecha = c.propuestaHora = null;
-    c.estado = 'confirmada';
-    await this.avisos.avisarAlDueno(c.negocio.id, { tipo: 'cita', titulo: `${c.cliente.nombre} aceptó el nuevo horario`, detalle: `${fCorta(c.fecha)} · ${c.hora} h`, enlace: '/portal/solicitudes' });
-    return salida(await this.citas.save(c));
+    if (c.status !== 'propuesta' || !c.proposedDate || !c.proposedTime) throw new BadRequestException('Esta cita no tiene una propuesta pendiente');
+    const dur = this.duracionDe(c, await this.vistas.agenda(c.businessId));
+    if (await this.hayChoque(c.businessId, c.proposedDate, c.proposedTime, dur, c.id)) throw new ConflictException('Ese horario ya no está disponible');
+    c.date = c.proposedDate;
+    c.startTime = c.proposedTime;
+    c.proposedDate = c.proposedTime = null;
+    c.status = 'confirmada';
+    await this.citas.save(c);
+    await this.avisos.avisarAlDueno(c.businessId, { tipo: 'cita', titulo: `${c.cliente.nCompleto} aceptó el nuevo horario`, detalle: `${fCorta(c.date)} · ${hhmm(c.startTime)} h`, enlace: '/portal/solicitudes' });
+    return this.salida(c);
   }
 
   // Cancela el cliente dueño de la cita o el dueño del negocio
-  async cancelar(userId: number, id: number) {
-    const c = await this.citas.findOneBy({ id });
+  async cancelar(userId: string, id: string) {
+    const c = await this.cargarCita({ id });
     if (!c) throw new NotFoundException('Cita no encontrada');
-    const dueno = await this.negocios.findOne({ where: { id: c.negocio.id, owner: { id: userId } } });
-    if (c.cliente.id !== userId && !dueno) throw new ForbiddenException('No puedes cancelar esta cita');
-    if (!['solicitada', 'confirmada', 'propuesta'].includes(c.estado)) throw new BadRequestException('Esta cita ya no se puede cancelar');
-    c.estado = 'cancelada';
-    const detalle = `${fCorta(c.fecha)} · ${c.hora} h`;
-    if (dueno) await this.avisos.avisar(c.cliente.id, { tipo: 'cita', titulo: `${c.negocio.nombre} canceló tu cita`, detalle, enlace: '/reservaciones' });
-    else await this.avisos.avisarAlDueno(c.negocio.id, { tipo: 'cita', titulo: `${c.cliente.nombre} canceló su cita`, detalle, enlace: '/portal/solicitudes' });
-    return salida(await this.citas.save(c));
+    const esDueno = c.negocio.ownerId === userId;
+    if (c.clientId !== userId && !esDueno) throw new ForbiddenException('No puedes cancelar esta cita');
+    if (!['solicitada', 'confirmada', 'propuesta'].includes(c.status)) throw new BadRequestException('Esta cita ya no se puede cancelar');
+    c.status = 'cancelada';
+    await this.citas.save(c);
+    const detalle = `${fCorta(c.date)} · ${hhmm(c.startTime)} h`;
+    if (esDueno) await this.avisos.avisar(c.clientId, { tipo: 'cita', titulo: `${c.negocio.tradeName} canceló tu cita`, detalle, enlace: '/reservaciones' });
+    else await this.avisos.avisarAlDueno(c.businessId, { tipo: 'cita', titulo: `${c.cliente.nCompleto} canceló su cita`, detalle, enlace: '/portal/solicitudes' });
+    return this.salida(c);
   }
 
   // ---------- Mensajes ----------
   private resumen(filas: Mensaje[], lado: 'cliente' | 'negocio') {
-    const mapa = new Map<number, { con: { id: number; nombre: string; imagenUrl?: string | null }; ultimo: { texto: string; de: string; creadoEn: Date }; sinLeer: number }>();
+    type Conv = { con: { id: string; nombre: string; imagenUrl?: string | null }; ultimo: { texto: string; de: string; creadoEn: Date }; sinLeer: number };
+    const mapa = new Map<string, Conv>();
     for (const m of filas) {
-      const otro = lado === 'negocio' ? { id: m.cliente.id, nombre: m.cliente.nombre } : { id: m.negocio.id, nombre: m.negocio.nombre, imagenUrl: m.negocio.imagenUrl };
-      const e = mapa.get(otro.id) ?? { con: otro, ultimo: { texto: m.texto, de: m.de, creadoEn: m.creadoEn }, sinLeer: 0 };
-      if (!mapa.has(otro.id)) mapa.set(otro.id, e);
-      if (!m.leido && m.de !== lado) e.sinLeer += 1;
+      const otro = lado === 'negocio' ? { id: m.cliente.id, nombre: m.cliente.nCompleto } : { id: m.negocio.id, nombre: m.negocio.tradeName, imagenUrl: m.negocio.coverUrl };
+      if (!mapa.has(otro.id)) mapa.set(otro.id, { con: otro, ultimo: { texto: m.body, de: m.sender, creadoEn: m.createdAt }, sinLeer: 0 });
+      if (!m.readAt && m.sender !== lado) mapa.get(otro.id)!.sinLeer += 1;
     }
     return [...mapa.values()];
   }
 
-  async conversacionesCliente(clienteId: number) {
-    const f = await this.mensajes.find({ where: { cliente: { id: clienteId } }, relations: ['negocio', 'cliente'], order: { creadoEn: 'DESC', id: 'DESC' } });
+  async conversacionesCliente(clienteId: string) {
+    const f = await this.mensajes.find({ where: { clientId: clienteId }, relations: { negocio: true, cliente: true }, order: { createdAt: 'DESC' } });
     return this.resumen(f, 'cliente');
   }
 
-  async conversacionesNegocio(userId: number) {
+  async conversacionesNegocio(userId: string) {
     const n = await this.negocioDe(userId);
-    const f = await this.mensajes.find({ where: { negocio: { id: n.id } }, relations: ['negocio', 'cliente'], order: { creadoEn: 'DESC', id: 'DESC' } });
+    const f = await this.mensajes.find({ where: { businessId: n.id }, relations: { negocio: true, cliente: true }, order: { createdAt: 'DESC' } });
     return this.resumen(f, 'negocio');
   }
 
-  private async hilo(negocioId: number, clienteId: number, lector: 'cliente' | 'negocio') {
-    const l = await this.mensajes.find({ where: { negocio: { id: negocioId }, cliente: { id: clienteId } }, order: { creadoEn: 'ASC', id: 'ASC' } });
-    const nuevos = l.filter((m) => !m.leido && m.de !== lector).map((m) => m.id);
-    if (nuevos.length) await this.mensajes.update({ id: In(nuevos) }, { leido: true });
-    return l.map((m) => ({ id: m.id, de: m.de, texto: m.texto, creadoEn: m.creadoEn }));
+  private async hilo(businessId: string, clientId: string, lector: 'cliente' | 'negocio') {
+    const l = await this.mensajes.find({ where: { businessId, clientId }, order: { createdAt: 'ASC' } });
+    await this.mensajes.update({ businessId, clientId, sender: Not(lector), readAt: IsNull() }, { readAt: new Date() });
+    return l.map((m) => ({ id: m.id, de: m.sender, texto: m.body, creadoEn: m.createdAt }));
   }
 
-  async hiloCliente(clienteId: number, negocioId: number) {
+  hiloCliente(clienteId: string, negocioId: string) {
     return this.hilo(negocioId, clienteId, 'cliente');
   }
 
-  async hiloNegocio(userId: number, clienteId: number) {
+  async hiloNegocio(userId: string, clienteId: string) {
     const n = await this.negocioDe(userId);
     return this.hilo(n.id, clienteId, 'negocio');
   }
 
-  async enviarCliente(clienteId: number, negocioId: number, dto: MensajeDto) {
-    const n = await this.negocios.findOneBy({ id: negocioId });
-    if (!n || n.estado !== 'publicado') throw new NotFoundException('Negocio no encontrado');
-    const m = await this.mensajes.save(this.mensajes.create({ negocio: n, cliente: { id: clienteId } as Usuario, de: 'cliente', texto: dto.texto.trim() }));
-    await this.avisos.avisarAlDueno(negocioId, { tipo: 'mensaje', titulo: `Mensaje nuevo de ${(await this.nombreUsuario(clienteId))}`, detalle: m.texto, enlace: `/portal/mensajes/${clienteId}` });
-    return { id: m.id, de: m.de, texto: m.texto, creadoEn: m.creadoEn };
-  }
-
-  private async nombreUsuario(id: number) {
-    return (await this.citas.manager.findOne(Usuario, { where: { id }, select: { id: true, nombre: true } }))?.nombre ?? 'un cliente';
+  async enviarCliente(clienteId: string, negocioId: string, dto: MensajeDto) {
+    if (!(await this.vistas.esVisible(negocioId))) throw new NotFoundException('Negocio no encontrado');
+    const m = await this.mensajes.save(this.mensajes.create({ businessId: negocioId, clientId: clienteId, sender: 'cliente', body: dto.texto.trim() }));
+    const autor = await this.usuarios.findOne({ where: { id: clienteId }, select: { id: true, nCompleto: true } });
+    await this.avisos.avisarAlDueno(negocioId, { tipo: 'mensaje', titulo: `Mensaje nuevo de ${autor?.nCompleto ?? 'un cliente'}`, detalle: m.body, enlace: `/portal/mensajes/${clienteId}` });
+    return { id: m.id, de: m.sender, texto: m.body, creadoEn: m.createdAt };
   }
 
   // El negocio solo responde a clientes que ya le escribieron o le pidieron una cita
-  async enviarNegocio(userId: number, clienteId: number, dto: MensajeDto) {
+  async enviarNegocio(userId: string, clienteId: string, dto: MensajeDto) {
     const n = await this.negocioDe(userId);
-    const previo = (await this.mensajes.existsBy({ negocio: { id: n.id }, cliente: { id: clienteId } })) || (await this.citas.existsBy({ negocio: { id: n.id }, cliente: { id: clienteId } }));
+    const previo = (await this.mensajes.existsBy({ businessId: n.id, clientId: clienteId })) || (await this.citas.existsBy({ businessId: n.id, clientId: clienteId }));
     if (!previo) throw new ForbiddenException('Solo puedes responder a clientes que te escribieron o pidieron una cita');
-    const m = await this.mensajes.save(this.mensajes.create({ negocio: n, cliente: { id: clienteId } as Usuario, de: 'negocio', texto: dto.texto.trim() }));
-    await this.avisos.avisar(clienteId, { tipo: 'mensaje', titulo: `${n.nombre} te respondió`, detalle: m.texto, enlace: `/negocio/${n.id}/mensajes` });
-    return { id: m.id, de: m.de, texto: m.texto, creadoEn: m.creadoEn };
+    const m = await this.mensajes.save(this.mensajes.create({ businessId: n.id, clientId: clienteId, sender: 'negocio', body: dto.texto.trim() }));
+    await this.avisos.avisar(clienteId, { tipo: 'mensaje', titulo: `${n.tradeName} te respondió`, detalle: m.body, enlace: `/negocio/${n.id}/mensajes` });
+    return { id: m.id, de: m.sender, texto: m.body, creadoEn: m.createdAt };
   }
 
   // ---------- Reseñas (lado del negocio) ----------
-  async resenasMias(userId: number) {
+  async resenasMias(userId: string) {
     const n = await this.negocioDe(userId);
-    const l = await this.resenas.find({ where: { negocio: { id: n.id } }, relations: ['usuario'], order: { creadoEn: 'DESC' } });
-    return l.map((r) => ({ ...r, usuario: { id: r.usuario.id, nombre: r.usuario.nombre } }));
+    const l = await this.resenas.find({ where: { businessId: n.id, status: 'publicado' }, relations: { usuario: true }, order: { createdAt: 'DESC' } });
+    const resp = l.length ? await this.respuestas.findBy({ reviewId: In(l.map((r) => r.id)) }) : [];
+    return l.map((r) => resenaApi(r, resp.find((x) => x.reviewId === r.id)));
   }
 
-  async responderResena(userId: number, id: number, texto: string) {
+  async responderResena(userId: string, id: string, texto: string) {
     const n = await this.negocioDe(userId);
-    const r = await this.resenas.findOne({ where: { id, negocio: { id: n.id } }, relations: ['usuario'] });
+    const r = await this.resenas.findOne({ where: { id, businessId: n.id }, relations: { usuario: true } });
     if (!r) throw new NotFoundException('Reseña no encontrada');
-    r.respuesta = texto.trim();
-    r.respuestaEn = new Date();
-    await this.resenas.save(r);
-    await this.avisos.avisar(r.usuario.id, { tipo: 'resena', titulo: `${n.nombre} respondió tu reseña`, detalle: r.respuesta ?? undefined, enlace: `/negocio/${n.id}` });
-    return { ...r, usuario: { id: r.usuario.id, nombre: r.usuario.nombre } };
+    const respuesta = await this.respuestas.save(this.respuestas.create({ reviewId: r.id, body: texto.trim(), createdAt: new Date() }));
+    await this.avisos.avisar(r.userId, { tipo: 'resena', titulo: `${n.tradeName} respondió tu reseña`, detalle: respuesta.body, enlace: `/negocio/${n.id}` });
+    return resenaApi(r, respuesta);
   }
 
-  // ---------- Disponibilidad (lado del negocio) ----------
-  async disponibilidadMia(userId: number) {
+  // ---------- Disponibilidad (lado del negocio): business_hours + business_details ----------
+  async disponibilidadMia(userId: string) {
     const n = await this.negocioDe(userId);
-    const horarios = Object.fromEntries(DIAS.map((d) => [d, n.horariosJson?.[d] ?? HORARIO_INICIAL]));
-    return { horarios, reglas: reglasDe(n), bloqueos: n.bloqueos ?? [] };
+    const a = await this.vistas.agenda(n.id);
+    const horarios = Object.fromEntries(DIAS.map((d) => [d, a.horariosJson?.[d] ?? HORARIO_INICIAL]));
+    return { horarios, reglas: reglasDe(a), bloqueos: a.bloqueos ?? [] };
   }
 
-  async guardarDisponibilidad(userId: number, dto: DisponibilidadDto) {
+  async guardarDisponibilidad(userId: string, dto: DisponibilidadDto) {
     const n = await this.negocioDe(userId);
     if (dto.horarios) {
       for (const d of DIAS) {
@@ -325,14 +347,30 @@ export class AgendaService {
         if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(h.apertura) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(h.cierre)) throw new BadRequestException(`Hora no válida en ${d}`);
         if (!h.cerrado && aMin(h.cierre) <= aMin(h.apertura)) throw new BadRequestException(`En ${d} el cierre debe ser después de la apertura`);
       }
-      n.horariosJson = Object.fromEntries(DIAS.map((d) => [d, { apertura: dto.horarios![d].apertura, cierre: dto.horarios![d].cierre, cerrado: !!dto.horarios![d].cerrado }]));
+      await this.ds.transaction(async (m) => {
+        await m.delete(HorarioNegocio, { businessId: n.id });
+        await m.insert(
+          HorarioNegocio,
+          DIAS.map((d, weekday) => ({ businessId: n.id, weekday, openTime: dto.horarios![d].apertura, closeTime: dto.horarios![d].cierre, isClosed: !!dto.horarios![d].cerrado })),
+        );
+      });
     }
-    if (dto.reglas) n.disponibilidad = { ...REGLAS_INICIALES, ...dto.reglas };
-    if (dto.bloqueos) {
-      for (const b of dto.bloqueos) if (b.hasta < b.desde) throw new BadRequestException('La fecha final del bloqueo no puede ser antes de la inicial');
-      n.bloqueos = dto.bloqueos.map((b) => ({ desde: b.desde, hasta: b.hasta, motivo: (b.motivo ?? '').trim() }));
+    if (dto.reglas || dto.bloqueos) {
+      const det = await this.vistas.detalle(n.id);
+      if (dto.reglas) det.bookingRules = { ...REGLAS_INICIALES, ...dto.reglas };
+      if (dto.bloqueos) {
+        for (const b of dto.bloqueos) if (b.hasta < b.desde) throw new BadRequestException('La fecha final del bloqueo no puede ser antes de la inicial');
+        det.blockedDates = dto.bloqueos.map((b) => ({ desde: b.desde, hasta: b.hasta, motivo: (b.motivo ?? '').trim() }));
+      }
+      await this.detalles.save(det);
     }
-    await this.negocios.save(n);
     return this.disponibilidadMia(userId);
   }
 }
+
+// Reseña con los nombres de campo de la API (solo id y nombre del autor)
+export const resenaApi = (r: Resena, respuesta?: RespuestaResena | null) => ({
+  id: r.id, calificacion: r.rating, comentario: r.comment, creadoEn: r.createdAt,
+  usuario: { id: r.usuario.id, nombre: r.usuario.nCompleto },
+  respuesta: respuesta?.body ?? null, respuestaEn: respuesta?.createdAt ?? null,
+});

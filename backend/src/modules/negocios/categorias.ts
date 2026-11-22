@@ -1,6 +1,6 @@
-// FUENTE ÚNICA de categorías y subcategorías. El frontend las lee de GET /categorias,
-// así que para agregar o renombrar una solo se cambia aquí (el icono sí va en el frontend,
-// en components/home/categoriaIconos.tsx, por slug).
+// Catálogo inicial de categorías y subcategorías. Al arrancar, las que falten se agregan a la tabla
+// categories (base/categorias.service.ts) y el front las lee de GET /categorias. El icono va en el
+// frontend (components/home/categoriaIconos.tsx, por slug).
 export const CATALOGO = [
   { slug: 'restaurantes', nombre: 'Restaurantes', subcategorias: ['Mexicana', 'Italiana', 'Japonesa', 'Saludable'] },
   { slug: 'salud', nombre: 'Salud', subcategorias: ['Pediatría', 'Dental', 'Psicología', 'Cardiología', 'Urología'] },
@@ -23,16 +23,3 @@ export type Categoria = (typeof CATALOGO)[number]['slug'];
 export function subcategoriasDe(slug: string): readonly string[] {
   return CATALOGO.find((c) => c.slug === slug)?.subcategorias ?? [];
 }
-
-// Sin subcategoría (vacía) también es válido
-export const subcategoriaValida = (categoria: string, subcategoria?: string | null) =>
-  !subcategoria || subcategoriasDe(categoria).includes(subcategoria);
-
-// Categorías de la primera versión → equivalentes actuales (para bases de datos ya creadas)
-export const CATEGORIAS_ANTERIORES: Record<string, string> = {
-  alimentos: 'restaurantes',
-  autos: 'automotriz',
-  laboratorios: 'salud',
-  bienestar: 'belleza',
-  fitness: 'entretenimiento',
-};

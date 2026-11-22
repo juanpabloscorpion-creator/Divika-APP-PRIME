@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsObject, ValidateNested, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Matches, Max, MaxLength, Min } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsObject, ValidateNested, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min } from 'class-validator';
 import { METODOS_PAGO } from '../proveedores/negocio-proveedor.dto';
 
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
@@ -55,12 +55,12 @@ export class ServicioDto {
 }
 
 export class CrearCitaDto {
-  @IsInt()
-  negocioId: number;
+  @IsUUID('all', { message: 'Negocio no válido' })
+  negocioId: string;
 
   @IsOptional()
-  @IsInt()
-  servicioId?: number;
+  @IsUUID('all', { message: 'Servicio no válido' })
+  servicioId?: string;
 
   @Matches(FECHA, { message: 'Fecha no válida' })
   fecha: string;

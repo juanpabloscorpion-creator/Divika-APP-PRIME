@@ -1,9 +1,8 @@
-import { IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
 
 export class CrearResenaDto {
-  @IsNumber({}, { message: 'El ID del negocio debe ser un número válido' })
-  @IsNotEmpty({ message: 'El ID del negocio es obligatorio' })
-  negocioId: number;
+  @IsUUID('all', { message: 'Negocio no válido' })
+  negocioId: string;
 
   @IsInt({ message: 'La calificación debe ser un número entero' })
   @Min(1, { message: 'La calificación mínima es 1 estrella' })
@@ -12,5 +11,6 @@ export class CrearResenaDto {
 
   @IsOptional()
   @IsString({ message: 'El comentario debe ser texto' })
+  @MaxLength(1000, { message: 'El comentario puede tener máximo 1000 caracteres' })
   comentario?: string;
 }

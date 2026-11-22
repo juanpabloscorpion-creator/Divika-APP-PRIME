@@ -1,43 +1,31 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Favorito } from './favorito.entity';
-import { Negocio } from '../negocios/negocio.entity';
-import { Usuario } from '../usuarios/usuario.entity';
+import { NegocioVistaService } from '../../base/negocio-vista.service';
+import { Favorito } from '../../entidades';
 
 @Injectable()
 export class FavoritosService {
   constructor(
     @InjectRepository(Favorito) private repo: Repository<Favorito>,
-    @InjectRepository(Negocio) private negocioRepo: Repository<Negocio>,
+    private vistas: NegocioVistaService,
   ) {}
 
-  // Devuelve los negocios favoritos del usuario, el más reciente primero
-  async listar(usuarioId: number) {
-    const favoritos = await this.repo.find({
-      where: { usuario: { id: usuarioId } },
-      relations: ['negocio'],
-      order: { creadoEn: 'DESC' },
-    });
-    return favoritos.map((f) => f.negocio);
+  // Negocios favoritos del usuario, el más reciente primero (sin los que se borraron)
+  async listar(usuarioId: string) {
+    const favoritos = await this.repo.find({ where: { userId: usuarioId }, relations: { negocio: true }, order: { createdAt: 'DESC' } });
+    return this.vistas.vistas(favoritos.map((f) => f.negocio).filter((n) => !n.deletedAt));
   }
 
   // Idempotente: marcar dos veces el mismo negocio no falla ni duplica
-  async agregar(usuarioId: number, negocioId: number) {
-    if (!(await this.negocioRepo.existsBy({ id: negocioId }))) {
-      throw new NotFoundException('Negocio no encontrado');
-    }
-    const existe = await this.repo.existsBy({ usuario: { id: usuarioId }, negocio: { id: negocioId } });
-    if (!existe) {
-      await this.repo.save(
-        this.repo.create({ usuario: { id: usuarioId } as Usuario, negocio: { id: negocioId } as Negocio }),
-      );
-    }
+  async agregar(usuarioId: string, negocioId: string) {
+    await this.vistas.existente(negocioId);
+    await this.repo.createQueryBuilder().insert().values({ userId: usuarioId, businessId: negocioId }).orIgnore().execute();
     return { favorito: true };
   }
 
-  async quitar(usuarioId: number, negocioId: number) {
-    await this.repo.delete({ usuario: { id: usuarioId }, negocio: { id: negocioId } });
+  async quitar(usuarioId: string, negocioId: string) {
+    await this.repo.delete({ userId: usuarioId, businessId: negocioId });
     return { favorito: false };
   }
 }

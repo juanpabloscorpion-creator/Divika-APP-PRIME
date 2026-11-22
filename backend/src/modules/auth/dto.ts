@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { Equals, IsBoolean, IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, Matches, MinLength, ValidateNested } from 'class-validator';
+import { Equals, IsBoolean, IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, MinLength, ValidateNested } from 'class-validator';
 import { CATEGORIAS } from '../negocios/categorias';
 
 export class LoginDto {
@@ -14,6 +14,7 @@ export class LoginDto {
 export class RegistroClienteDto {
   @IsString()
   @IsNotEmpty({ message: 'El nombre es obligatorio' })
+  @MaxLength(80, { message: 'El nombre puede tener máximo 80 caracteres' })
   nombre: string;
 
   @IsEmail({}, { message: 'Correo no válido' })
@@ -27,40 +28,10 @@ export class RegistroClienteDto {
   password: string;
 }
 
-export class RegistroNegocioDto {
-  @IsEmail({}, { message: 'Correo no válido' })
-  email: string;
-
-  @IsString()
-  @MinLength(8, { message: 'La contraseña debe tener mínimo 8 caracteres' })
-  password: string;
-
-  @IsString()
-  @IsNotEmpty({ message: 'El nombre del local es obligatorio' })
-  nombreLocal: string;
-
-  @IsIn(CATEGORIAS, { message: 'Elige una categoría válida' })
-  categoria: string;
-
-  @IsOptional()
-  @IsString()
-  subcategoria?: string;
-
-  @Matches(/^[0-9+()\-\s]{7,20}$/, { message: 'Teléfono no válido' })
-  telefono: string;
-
-  @IsString()
-  @IsNotEmpty({ message: 'La dirección es obligatoria' })
-  direccion: string;
-
-  @IsOptional()
-  @IsString()
-  horario?: string;
-}
-
 export class NegocioProveedorDto {
   @IsString()
   @IsNotEmpty({ message: 'El nombre del negocio es obligatorio' })
+  @MaxLength(100, { message: 'El nombre del negocio puede tener máximo 100 caracteres' })
   nombre: string;
 
   @IsIn(CATEGORIAS, { message: 'Elige una categoría válida' })
@@ -75,10 +46,12 @@ export class NegocioProveedorDto {
 
   @IsString()
   @IsNotEmpty({ message: 'La ciudad es obligatoria' })
+  @MaxLength(100)
   ciudad: string;
 
   @IsString()
   @IsNotEmpty({ message: 'La colonia es obligatoria' })
+  @MaxLength(100)
   colonia: string;
 }
 
@@ -86,10 +59,12 @@ export class NegocioProveedorDto {
 export class RegistroProveedorDto {
   @IsString()
   @IsNotEmpty({ message: 'El nombre es obligatorio' })
+  @MaxLength(40, { message: 'El nombre puede tener máximo 40 caracteres' })
   nombre: string;
 
   @IsString()
   @IsNotEmpty({ message: 'Los apellidos son obligatorios' })
+  @MaxLength(39, { message: 'Los apellidos pueden tener máximo 39 caracteres' })
   apellidos: string;
 
   @IsEmail({}, { message: 'Correo no válido' })
@@ -111,18 +86,13 @@ export class RegistroProveedorDto {
   recibirNovedades?: boolean;
 }
 
-// ==========================================
-// NUEVOS DTOS AÑADIDOS PARA GOOGLE, APPLE Y OTP:
-// ==========================================
-
-// MODIFICACIÓN: DTO para recibir el token de autenticación de Google desde el frontend
+// Google / Apple (aún responden 501)
 export class GoogleLoginDto {
   @IsString()
   @IsNotEmpty({ message: 'El token de Google es obligatorio' })
   token: string;
 }
 
-// MODIFICACIÓN: DTO para recibir el token o credenciales de Apple desde el frontend
 export class AppleLoginDto {
   @IsString()
   @IsNotEmpty({ message: 'El token de Apple es obligatorio' })
@@ -131,22 +101,6 @@ export class AppleLoginDto {
   @IsOptional()
   @IsString()
   nombre?: string; // Apple a veces solo manda el nombre en el primer registro
-}
-
-// MODIFICACIÓN: DTO para solicitar el envío del código OTP a un número de teléfono
-export class EnviarOtpDto {
-  @Matches(/^[0-9+()\-\s]{7,20}$/, { message: 'Número de teléfono no válido' })
-  telefono: string;
-}
-
-// MODIFICACIÓN: DTO para verificar el código OTP ingresado por el usuario
-export class VerificarOtpDto {
-  @Matches(/^[0-9+()\-\s]{7,20}$/, { message: 'Número de teléfono no válido' })
-  telefono: string;
-
-  @IsString()
-  @IsNotEmpty({ message: 'El código OTP es obligatorio' })
-  codigo: string;
 }
 
 // ==========================================

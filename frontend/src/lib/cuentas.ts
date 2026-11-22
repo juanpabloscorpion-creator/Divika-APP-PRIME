@@ -23,7 +23,7 @@ export function listarCuentas(): Sesion[] {
   return actual ? [actual, ...otras] : otras;
 }
 
-export function cambiarACuenta(id: number) {
+export function cambiarACuenta(id: string) {
   const s = leer().find((c) => c.usuario.id === id);
   if (!s) return false;
   recordarCuenta(getSesion());
@@ -31,6 +31,6 @@ export function cambiarACuenta(id: number) {
   return true;
 }
 
-export function olvidarCuenta(id: number) {
+export function olvidarCuenta(id: string) {
   localStorage.setItem(CLAVE_CUENTAS, JSON.stringify(leer().filter((s) => s.usuario.id !== id)));
 }

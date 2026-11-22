@@ -22,7 +22,7 @@ export default function ReservarPage() {
   const [paso, setPaso] = useState(0);
   const [fecha, setFecha] = useState('');
   const [hora, setHora] = useState('');
-  const [servicioId, setServicioId] = useState<number | null>(null);
+  const [servicioId, setServicioId] = useState<string | null>(null);
   const [lugar, setLugar] = useState<'local' | 'domicilio'>('local');
   const [direccion, setDireccion] = useState('');
   const [personas, setPersonas] = useState(1);

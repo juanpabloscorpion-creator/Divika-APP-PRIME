@@ -1,13 +1,13 @@
 # Resumen para el equipo de backend
 
-El backend de `backend/` (NestJS + SQLite) es **solo de referencia**: sirve para que el front funcione mientras se construye el real. El front depende de las **rutas y la forma de las respuestas**, no de las tablas. Para usar el backend real basta cambiar `NEXT_PUBLIC_API_URL`.
+El backend de `backend/` (NestJS + PostgreSQL/PostGIS) ya usa **su diagrama** ([`divika.dbml`](divika.dbml)) tal cual, más 10 tablas extra para funciones que el diagrama no cubre ([`divika-completo.dbml`](divika-completo.dbml), explicadas en [`base-de-datos.md`](base-de-datos.md), junto con 5 decisiones para revisar). El front depende de las **rutas y la forma de las respuestas**; si ustedes hacen otro backend, basta cambiar `NEXT_PUBLIC_API_URL`.
 
-Detalle de cada ruta: [`api.md`](api.md). Tipos exactos que lee el front: `frontend/src/types/index.ts`. Tablas de referencia (orientativas): [`base-de-datos.md`](base-de-datos.md).
+Detalle de cada ruta: [`api.md`](api.md). Tipos exactos que lee el front: `frontend/src/types/index.ts`. Tablas: [`base-de-datos.md`](base-de-datos.md).
 
 ## Convenciones
 - JSON; errores 4xx con `{ "message": "texto en español" }` (o lista de textos). El front los muestra tal cual.
-- `Authorization: Bearer <JWT>`; el rol del usuario es `cliente` o `negocio`. Fechas `AAAA-MM-DD`, horas `HH:MM` (24 h), montos en MXN como número, hora local del negocio (zona configurable).
-- Archivos (fotos): `multipart/form-data`, campo `foto`, JPG/PNG, máx. 10 MB; las respuestas traen URL absoluta.
+- Ids **uuid**. `Authorization: Bearer <JWT>`; en la API el rol es `cliente` o `negocio` (en la base `consumidor` / `vendedor`). Fechas `AAAA-MM-DD`, horas `HH:MM` (24 h), montos en MXN como número, hora local del negocio (zona configurable).
+- Archivos (fotos): `multipart/form-data`, campo `foto`, JPG/PNG, máx. 5 MB; las respuestas traen URL absoluta (Cloudinary con `CLOUDINARY_URL`, o disco local).
 - CORS abierto al origen del front.
 
 ## Qué cubre cada área
@@ -35,14 +35,14 @@ Detalle de cada ruta: [`api.md`](api.md). Tipos exactos que lee el front: `front
 
 **Avisos.** Se crean (para el usuario que corresponda) cuando: llega, se confirma, rechaza, propone, acepta o cancela una cita; llega un mensaje (en ambos sentidos); llega una reseña; el negocio responde una reseña. Forma: `{ noLeidas, items: [{ id, tipo: cita|mensaje|resena, titulo, detalle, enlace, leida, creadoEn }] }`. El front consulta cada 30 s (portal) y cada 8 s (chats).
 
-**Reseñas.** El negocio puede responder una (`respuesta`, máx. 500), que sale en `GET /resenas/negocio/:id`. Recalcular el promedio del negocio al crear.
+**Reseñas.** Una por persona y negocio (si vuelve a opinar se actualiza). El negocio puede responder (`respuesta`, máx. 500), que sale en `GET /resenas/negocio/:id`. La calificación del negocio es el promedio de sus reseñas publicadas.
 
 ## Simulado o pendiente (decidir con ustedes)
 - **SMS y correo:** hoy el código de acceso se imprime en consola; falta proveedor real (verificación de teléfono y correo, recuperar contraseña).
 - **Push / SMS / correo de avisos:** solo existen avisos dentro de la app.
-- **Inicio de sesión con Google/Apple:** desactivado (501) hasta validar el token del proveedor.
-- **Fotos:** se guardan en disco local; en producción usar almacenamiento de objetos.
+- **Inicio de sesión con Google/Apple:** desactivado (501) hasta validar el token del proveedor; la tabla `autenticacion` ya existe.
+- **Fotos:** con `CLOUDINARY_URL` se suben a Cloudinary (sin ella, a disco local). La integración no se ha probado contra una cuenta real.
 - **Pagos:** no hay cobro; cualquier pasarela sería una decisión de producto aparte.
 - **Verificación de identidad, verificación en dos pasos y dispositivos conectados:** el front los muestra como "próximamente".
-- **Visitas:** se guardan como json por día; en PostgreSQL conviene una tabla `visitas(negocioId, fecha, total)`.
+- **Verificación de negocios y moderación de reseñas:** las tablas existen (`verification_*`, `business_claims`, `reviews.status`) pero no hay panel de admin.
 - **Producción:** HTTPS, secretos (`JWT_SECRET`), CORS y zona horaria (`TZ_NEGOCIOS`).

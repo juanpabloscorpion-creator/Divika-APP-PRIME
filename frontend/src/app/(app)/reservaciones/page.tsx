@@ -14,7 +14,7 @@ export default function ReservacionesPage() {
   const cargar = useCallback(() => api<Cita[]>('/citas/mias').then(setLista).catch((e: Error) => { setError(e.message); setLista([]); }), []);
   useEffect(() => { cargar(); }, [cargar]);
 
-  async function accion(id: number, ruta: 'cancelar' | 'aceptar-propuesta') {
+  async function accion(id: string, ruta: 'cancelar' | 'aceptar-propuesta') {
     setError('');
     try {
       await api(`/citas/${id}/${ruta}`, { method: 'POST' });

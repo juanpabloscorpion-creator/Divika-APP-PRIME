@@ -1,7 +1,7 @@
 export type Rol = 'cliente' | 'negocio';
 
 export type Usuario = {
-  id: number;
+  id: string;
   nombre: string;
   apellidos?: string | null;
   avatarUrl?: string | null;
@@ -18,7 +18,7 @@ export type HorarioDia = { apertura: string; cierre: string; cerrado: boolean };
 export type EstadoNegocio = 'en_proceso' | 'publicado' | 'pausado';
 
 export type Negocio = {
-  id: number;
+  id: string;
   nombre: string;
   descripcionCorta: string | null;
   descripcion?: string | null;
@@ -36,6 +36,8 @@ export type Negocio = {
   horario: string | null;
   horariosJson: Record<string, HorarioDia> | null;
   calificacion: number;
+  // Reseñas publicadas (calificacion es su promedio; 0 si no hay)
+  totalResenas?: number;
   imagenUrl: string | null;
   galeria: string[] | null;
   metodosPago?: string[] | null;
@@ -60,14 +62,14 @@ export type CategoriaInfo = { slug: string; nombre: string; subcategorias: strin
 export type NegocioCercano = Negocio & { distanciaKm: number | null };
 
 // GET /negocios/:id (incluye datos públicos del dueño)
-export type NegocioDetalle = Negocio & { owner: { id: number; nombre: string } | null };
+export type NegocioDetalle = Negocio & { owner: { id: string; nombre: string } | null };
 
 export type Resena = {
-  id: number;
+  id: string;
   calificacion: number; // 1 a 5
   comentario: string | null;
   creadoEn: string;
-  usuario: { id: number; nombre: string };
+  usuario: { id: string; nombre: string };
   respuesta?: string | null;
   respuestaEn?: string | null;
 };
@@ -79,7 +81,7 @@ export type Preferencias = {
 };
 
 export type Cuenta = {
-  id: number;
+  id: string;
   nombre: string;
   apellidos: string | null;
   email: string;
@@ -96,13 +98,13 @@ export type Cuenta = {
 // Servicios, citas y mensajes
 export type Modalidad = 'local' | 'domicilio' | 'ambos';
 export type Servicio = {
-  id: number; nombre: string; descripcion: string | null; precio: number | null; duracionMin: number; activo: boolean;
+  id: string; nombre: string; descripcion: string | null; precio: number | null; duracionMin: number; activo: boolean;
   categoria: string | null; modalidad: Modalidad; costoTraslado: number | null; indicaciones: string | null; fotoUrl: string | null;
 };
 
 export type EstadoCita = 'solicitada' | 'confirmada' | 'propuesta' | 'rechazada' | 'cancelada';
 export type Cita = {
-  id: number;
+  id: string;
   estado: EstadoCita;
   fecha: string; // AAAA-MM-DD
   hora: string; // HH:MM
@@ -112,19 +114,19 @@ export type Cita = {
   propuestaFecha: string | null;
   propuestaHora: string | null;
   creadoEn: string;
-  servicio: { id: number; nombre: string; precio: number | null; duracionMin: number } | null;
-  negocio: { id: number; nombre: string; imagenUrl: string | null; direccion: string; telefono: string };
-  cliente: { id: number; nombre: string; telefono: string | null };
+  servicio: { id: string; nombre: string; precio: number | null; duracionMin: number } | null;
+  negocio: { id: string; nombre: string; imagenUrl: string | null; direccion: string; telefono: string };
+  cliente: { id: string; nombre: string; telefono: string | null };
 };
 
-export type MensajeChat = { id: number; de: 'cliente' | 'negocio'; texto: string; creadoEn: string };
+export type MensajeChat = { id: string; de: 'cliente' | 'negocio'; texto: string; creadoEn: string };
 export type Conversacion = {
-  con: { id: number; nombre: string; imagenUrl?: string | null };
+  con: { id: string; nombre: string; imagenUrl?: string | null };
   ultimo: { texto: string; de: string; creadoEn: string };
   sinLeer: number;
 };
 
-export type Notificacion = { id: number; tipo: 'cita' | 'mensaje' | 'resena'; titulo: string; detalle: string | null; enlace: string | null; leida: boolean; creadoEn: string };
+export type Notificacion = { id: string; tipo: 'cita' | 'mensaje' | 'resena'; titulo: string; detalle: string | null; enlace: string | null; leida: boolean; creadoEn: string };
 export type Disponibilidad = {
   horarios: Record<string, HorarioDia>;
   reglas: { duracionBase: number; intervaloMin: number; anticipacionHoras: number; maxDias: number };

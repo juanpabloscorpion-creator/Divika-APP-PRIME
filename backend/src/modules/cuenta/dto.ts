@@ -3,7 +3,7 @@ import { IsEmail, IsIn, IsNotEmpty, IsObject, IsOptional, IsString, Matches, Max
 export const TIPOS_PROBLEMA = ['aplicacion', 'reserva', 'pagos', 'cancelaciones', 'servicio', 'otro'] as const;
 
 export class ActualizarCuentaDto {
-  @IsOptional() @IsString() @IsNotEmpty({ message: 'El nombre es obligatorio' }) @MaxLength(120)
+  @IsOptional() @IsString() @IsNotEmpty({ message: 'El nombre es obligatorio' }) @MaxLength(80, { message: 'El nombre puede tener máximo 80 caracteres' })
   nombre?: string;
 
   @IsOptional() @IsEmail({}, { message: 'Correo no válido' })
@@ -12,7 +12,7 @@ export class ActualizarCuentaDto {
   @IsOptional() @Matches(/^(\d{4}-\d{2}-\d{2})?$/, { message: 'Fecha de nacimiento no válida' })
   fechaNacimiento?: string;
 
-  @IsOptional() @IsString() @MaxLength(80)
+  @IsOptional() @IsString() @MaxLength(100)
   ciudad?: string;
 }
 

@@ -12,17 +12,17 @@ type Pestana = 'solicitudes' | 'confirmadas' | 'historial';
 export default function Solicitudes() {
   const [citas, setCitas] = useState<Cita[] | null>(null);
   const [tab, setTab] = useState<Pestana>('solicitudes');
-  const [proponiendo, setProponiendo] = useState<number | null>(null);
+  const [proponiendo, setProponiendo] = useState<string | null>(null);
   const [pf, setPf] = useState('');
   const [ph, setPh] = useState('');
   const [error, setError] = useState('');
-  const [sel, setSel] = useState<number | null>(null);
+  const [sel, setSel] = useState<string | null>(null);
   const escritorio = useEscritorio() === true;
 
   const cargar = useCallback(() => api<Cita[]>('/proveedor/citas').then(setCitas).catch((e: Error) => { setError(e.message); setCitas([]); }), []);
   useEffect(() => { cargar(); }, [cargar]);
 
-  async function ir(id: number, ruta: string, body?: unknown) {
+  async function ir(id: string, ruta: string, body?: unknown) {
     setError('');
     try {
       await api(`/proveedor/citas/${id}/${ruta}`, { method: 'POST', body });

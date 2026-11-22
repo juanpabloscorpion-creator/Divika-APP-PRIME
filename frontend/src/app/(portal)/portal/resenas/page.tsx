@@ -8,13 +8,13 @@ import type { Resena } from '@/types';
 
 export default function Resenas() {
   const [lista, setLista] = useState<Resena[] | null>(null);
-  const [respondiendo, setRespondiendo] = useState<number | null>(null);
+  const [respondiendo, setRespondiendo] = useState<string | null>(null);
   const [texto, setTexto] = useState('');
   const [error, setError] = useState('');
   const cargar = useCallback(() => api<Resena[]>('/proveedor/resenas').then(setLista).catch((e: Error) => { setError(e.message); setLista([]); }), []);
   useEffect(() => { cargar(); }, [cargar]);
 
-  async function enviar(id: number) {
+  async function enviar(id: string) {
     setError('');
     try {
       await api(`/proveedor/resenas/${id}/respuesta`, { method: 'POST', body: { texto } });

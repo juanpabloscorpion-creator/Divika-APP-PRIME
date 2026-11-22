@@ -1,18 +1,16 @@
 # API
 
-Base: `http://localhost:3001`. Rutas con 🔒 requieren `Authorization: Bearer <token>`.
+Base: `http://localhost:3001` (en la nube, la URL de Render). Rutas con 🔒 requieren `Authorization: Bearer <token>`. Todos los `id` son **uuid** (texto); un id que no es uuid responde 400. Tablas detrás de cada ruta: [`base-de-datos.md`](base-de-datos.md).
 
 ## Auth
 | Método | Ruta | Descripción |
 |---|---|---|
 | POST | `/auth/registro/cliente` | `{ nombre, email, telefono (10 dígitos), password }`. No verifica el teléfono: eso se hace con el código |
 | POST | `/auth/registro/proveedor` | Alta desde el sitio web: `{ nombre, apellidos, email, password, negocio: { nombre, categoria, telefono, ciudad, colonia }, aceptaTerminos: true, recibirNovedades? }`. Crea usuario y negocio en estado `en_proceso` (no sale en el directorio hasta publicar). Devuelve `{ token, usuario }` |
-| POST | `/auth/registro/negocio` | Crea usuario y negocio en una transacción (`categoria` y `subcategoria` opcional) |
 | POST | `/auth/login` | Correo y contraseña. Devuelve `{ token, usuario }` |
 | POST | `/auth/codigo/enviar` | `{ canal: 'sms' \| 'email', destino }`. Genera un código de 4 dígitos. Responde igual exista o no la cuenta. Un envío por minuto (429 si se repite antes) |
 | POST | `/auth/codigo/verificar` | `{ canal, destino, codigo }`. Si es correcto devuelve `{ token, usuario }` (y marca el teléfono como verificado en `sms`). Vigencia 10 min, máximo 5 intentos |
 | GET 🔒 | `/auth/me` | Perfil del usuario |
-| POST 🔒 | `/auth/otp/enviar`, `/auth/otp/verificar` | Verificar un teléfono con la sesión ya iniciada (mismas reglas del código) |
 | POST | `/auth/google`, `/auth/apple` | **Desactivados** (501) hasta validar el token con la librería oficial de cada proveedor |
 
 **Códigos:** solo se guarda su hash. Todavía no hay proveedor de SMS ni de correo: el código se imprime en la consola del backend (`[CÓDIGO SIMULADO] ...`). Para producción, conectar Twilio (SMS) o un servicio de correo en `AuthService.emitirCodigo`.
@@ -29,19 +27,15 @@ Se editan en `backend/src/modules/negocios/categorias.ts`. El icono de cada una 
 |---|---|---|
 | GET | `/negocios` | Filtros opcionales: `buscar` (nombre), `categoria`, `subcategoria`. Con `lat` y `lng` cada negocio trae `distanciaKm`; con `orden=distancia` (y ubicación) se ordena por cercanía, si no por calificación |
 | GET | `/negocios/top` | Top 10 |
-| GET | `/negocios/cercanos?lat=&lng=&radio=` | Ordenados por distancia (km, radio por defecto 10) |
-| GET 🔒 | `/negocios/propietario/mis-negocios` | Negocios del usuario |
 | GET | `/negocios/:id` | Detalle (dueño: solo id y nombre) |
-| POST | `/negocios/:id/clic-whatsapp`, `/clic-llamada` | Suman a las métricas |
-| POST 🔒 | `/negocios` | Crear. `subcategoria` es opcional y debe pertenecer a la categoría |
-| PUT 🔒 | `/negocios/:id`, `/negocios/:id/fotos` | Solo el dueño |
-| DELETE 🔒 | `/negocios/:id` | Solo el dueño |
+| POST | `/negocios/:id/clic-whatsapp`, `/clic-llamada` | Guardan un `contact_events` (métricas del portal) |
 
+Para crear o editar un negocio se usa `/auth/registro/proveedor` y `/proveedor/negocio` (con la sesión del dueño).
 ## Reseñas
 | Método | Ruta | Descripción |
 |---|---|---|
 | GET | `/resenas/negocio/:negocioId` | Reseñas del negocio, más recientes primero |
-| POST 🔒 | `/resenas` | `{ negocioId, calificacion (1-5), comentario? }`; recalcula el promedio del negocio |
+| POST 🔒 | `/resenas` | `{ negocioId, calificacion (1-5), comentario? }`. Una reseña por persona y negocio: si ya existía, se actualiza. La calificación del negocio es el promedio de sus reseñas |
 
 ## Mi negocio (proveedor) 🔒
 Para usuarios con `rol = 'negocio'`; siempre operan sobre su propio negocio.
@@ -52,11 +46,11 @@ Para usuarios con `rol = 'negocio'`; siempre operan sobre su propio negocio.
 | PUT | `/proveedor/negocio` | `{ nombre?, categoria?, subcategoria?, descripcion? (máx. 600), telefono?, whatsapp?, emailPublico?, ciudad?, colonia?, metodosPago? (efectivo\|transferencia\|tarjeta, solo informativo), cobertura? { radioKm 1-100, zonas[] máx. 15 } }` |
 | POST | `/proveedor/negocio/publicar` | Pasa a `publicado`. 422 si falta nombre, descripción, teléfono o al menos una foto |
 | POST | `/proveedor/negocio/pausar` | De `publicado` a `pausado` |
-| POST | `/proveedor/negocio/fotos` | `multipart/form-data`, campo `foto` (JPG o PNG, máx. 10 MB, hasta 10). Devuelve el negocio |
+| POST | `/proveedor/negocio/fotos` | `multipart/form-data`, campo `foto` (JPG o PNG, máx. 5 MB, hasta 10). Devuelve el negocio |
 | PUT | `/proveedor/negocio/fotos/orden` | `{ orden: [2, 0, 1] }`: índices de la galería en el orden nuevo. La primera es la portada |
 | DELETE | `/proveedor/negocio/fotos/:indice` | Quita la foto en esa posición |
 
-Solo los negocios `publicado` salen en `/negocios`, `/negocios/top` y `/negocios/cercanos`. Las fotos subidas se guardan en `backend/uploads/` y se sirven en `/uploads/...`; la variable `PUBLIC_URL` arma el enlace completo.
+Solo los negocios `publicado` salen en `/negocios` y `/negocios/top`. Las fotos se guardan en Cloudinary si existe `CLOUDINARY_URL`; si no, en `backend/uploads/` (servidas en `/uploads/...`, con `PUBLIC_URL` como base del enlace).
 
 ## Proveedores (sitio web)
 | Método | Ruta | Descripción |
@@ -70,7 +64,7 @@ Pantallas de Perfil (editar, seguridad, notificaciones, privacidad, reportar pro
 |---|---|---|
 | GET 🔒 | `/cuenta` | Perfil completo: `id, nombre, apellidos, email, rol, telefono, telefonoVerificado, fechaNacimiento (AAAA-MM-DD), ciudad, avatarUrl, tienePassword, preferencias` |
 | PUT 🔒 | `/cuenta` | `{ nombre?, email?, fechaNacimiento?, ciudad? }`. Devuelve el perfil. El correo se cambia sin código de verificación (pendiente de correo real) |
-| POST 🔒 | `/cuenta/foto` | `multipart/form-data`, campo `foto` (JPG/PNG, máx. 10 MB). Devuelve el perfil con `avatarUrl` absoluta |
+| POST 🔒 | `/cuenta/foto` | `multipart/form-data`, campo `foto` (JPG/PNG, máx. 5 MB). Devuelve el perfil con `avatarUrl` absoluta |
 | DELETE 🔒 | `/cuenta/foto` | Quita la foto |
 | POST 🔒 | `/cuenta/contrasena` | `{ actual, nueva }`; nueva: mínimo 8 caracteres, una mayúscula y un número |
 | POST 🔒 | `/cuenta/telefono/codigo` | `{ telefono }` (10 dígitos). Envía código de 4 dígitos (simulado en consola). Responde `{ enviado, segundosEspera: 60 }` |
@@ -95,7 +89,7 @@ Estados de una cita: `solicitada → confirmada | rechazada`, `solicitada → pr
 | POST 🔒 | `/citas/:id/cancelar` | Cancela el cliente dueño de la cita o el dueño del negocio |
 | GET / POST 🔒 | `/mensajes`, `/mensajes/negocio/:negocioId` | Cliente: conversaciones; hilo (marca leídos); envío `{ texto }` (POST) |
 | GET / POST / PUT / DELETE 🔒 | `/proveedor/servicios[/:id]` | CRUD de servicios del negocio `{ nombre, descripcion?, precio?, duracionMin, activo?, categoria?, modalidad? (por defecto local), costoTraslado?, indicaciones? }`. 400 si `modalidad` ≠ local y el negocio no tiene `atiendeDomicilio`. Con modalidad local el traslado se ignora |
-| POST / DELETE 🔒 | `/proveedor/servicios/:id/foto` | POST multipart con el campo `foto` (JPG/PNG, máx. 10 MB); DELETE la quita. Devuelve el servicio |
+| POST / DELETE 🔒 | `/proveedor/servicios/:id/foto` | POST multipart con el campo `foto` (JPG/PNG, máx. 5 MB); DELETE la quita. Devuelve el servicio |
 | GET 🔒 | `/proveedor/citas` | Citas del negocio |
 | POST 🔒 | `/proveedor/citas/:id/confirmar`, `/rechazar` | Solo si está `solicitada` |
 | POST 🔒 | `/proveedor/citas/:id/proponer` | `{ fecha, hora }` → estado `propuesta` |
@@ -145,7 +139,7 @@ Esta sección es para quien implemente el backend en otra tecnología (por ejemp
 ## Rutas que el frontend usa hoy
 | Pantalla | Ruta | Respuesta esperada |
 |---|---|---|
-| Registro | `POST /auth/registro/cliente`, `POST /auth/registro/negocio` | `{ token, usuario }` |
+| Registro | `POST /auth/registro/cliente`, `POST /auth/registro/proveedor` | `{ token, usuario }` |
 | Login | `POST /auth/login` | `{ token, usuario }` |
 | Acceso por código | `POST /auth/codigo/enviar` | `{ enviado: boolean, segundosEspera: number }` |
 | Acceso por código | `POST /auth/codigo/verificar` | `{ token, usuario }` |
@@ -153,26 +147,26 @@ Esta sección es para quien implemente el backend en otra tecnología (por ejemp
 | Inicio, listado | `GET /negocios?buscar=&categoria=&subcategoria=&orden=&lat=&lng=` | `Negocio[]` (con `distanciaKm` si hay `lat` y `lng`) |
 | Inicio (Top 10) | `GET /negocios/top` | `Negocio[]` |
 | Detalle | `GET /negocios/:id` | `Negocio` + `owner: { id, nombre } \| null` |
-| Detalle | `GET /resenas/negocio/:id` | `[{ id, calificacion, comentario, creadoEn, usuario: { id, nombre } }]` |
+| Detalle | `GET /resenas/negocio/:id` | `[{ id, calificacion, comentario, creadoEn, usuario: { id, nombre }, respuesta, respuestaEn }]` |
 | Detalle | `POST /negocios/:id/clic-whatsapp`, `/clic-llamada` | Cualquier 2xx |
 
 ## Formas de los datos
-**usuario:** `{ id, nombre, email, rol: 'cliente' | 'negocio', telefono?, telefonoVerificado? }`. Nunca debe incluir el hash de la contraseña ni el del código.
+**usuario:** `{ id, nombre, email, rol: 'cliente' | 'negocio', telefono?, telefonoVerificado?, avatarUrl? }`. `nombre` es el nombre completo (`usuarios.n_completo`). Nunca incluye la contraseña ni el código.
 
-**Negocio:** `id, nombre, descripcionCorta, categoria` (slug), `subcategoria, telefono` (10 dígitos), `direccion, latitud, longitud, horario, horariosJson, calificacion, imagenUrl, galeria, metodosPago, cobertura, clicsWhatsapp, clicsLlamada, creadoEn`.
+**Negocio:** `id, slug, nombre, descripcionCorta, descripcion, categoria` (slug), `subcategoria, telefono, whatsapp, emailPublico, direccion, calle, colonia, ciudad, codigoPostal, referencias, latitud, longitud, estado, verificado, horario` (siempre null), `horariosJson, calificacion, totalResenas, imagenUrl, galeria, metodosPago, atiendeDomicilio, mostrarPagoPerfil, instruccionesPago, cobertura, clicsWhatsapp, clicsLlamada, creadoEn`.
 - `horariosJson` usa las claves `lunes, martes, miercoles, jueves, viernes, sabado, domingo` (sin acentos), cada una `{ apertura: "09:00", cierre: "19:00", cerrado: false }`. Es lo que pinta el horario del detalle.
-- `latitud` y `longitud` deben ser reales: de ahí salen el mapa y la distancia.
+- `latitud` y `longitud` son `null` mientras el negocio no marque su punto en el mapa. De ahí salen el mapa y la distancia.
 - `imagenUrl` es una URL completa.
 
 ## Reglas de negocio que el frontend da por hechas
 - **Código de acceso:** 4 dígitos, vigencia de 10 minutos, 5 intentos, un envío por minuto (429 si se repite antes). `enviar` responde igual exista o no la cuenta, para no revelar quién está registrado.
-- **Teléfono de cliente:** obligatorio, 10 dígitos y único.
+- **Teléfono de cliente:** obligatorio, 10 dígitos y único entre cuentas activas.
 - **Categorías:** el frontend no las tiene fijas; las pide a `/categorias`. Los `slug` deben coincidir con los de los iconos (`frontend/src/components/home/categoriaIconos.tsx`).
 - **Distancia:** en kilómetros, calculada desde `lat` y `lng` del usuario (fórmula haversine).
-- **Orden por defecto:** por calificación descendente.
+- **Orden por defecto:** por calificación descendente y luego por nombre.
 
 ## Portal del proveedor y sitio web
 Las rutas nuevas que pide el diseño web están en [`api-portal-proveedor.md`](api-portal-proveedor.md).
 
 ## Aún sin pantalla en el frontend
-`/negocios/cercanos`, `/auth/me`, `PUT/DELETE /negocios`. Existen en este backend por si se necesitan. Resumen general para el equipo de backend: [`resumen-para-backend.md`](resumen-para-backend.md).
+`/auth/me`. Se quitaron `/negocios/cercanos`, `POST/PUT/DELETE /negocios`, `/negocios/propietario/mis-negocios`, `/auth/registro/negocio` y `/auth/otp/*` porque el front no los usa (su función la cubren `/negocios?orden=distancia`, `/proveedor/negocio` y `/cuenta/telefono/*`). Resumen general para el equipo de backend: [`resumen-para-backend.md`](resumen-para-backend.md).

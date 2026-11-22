@@ -22,7 +22,7 @@ export function FotosNegocio({ negocio, onCambio }: { negocio: Negocio; onCambio
       let actual = negocio;
       for (const f of Array.from(archivos)) {
         if (!/^image\/(jpeg|png)$/.test(f.type)) throw new Error('Solo se aceptan fotos JPG o PNG');
-        if (f.size > 10 * 1024 * 1024) throw new Error('Cada foto puede pesar máximo 10 MB');
+        if (f.size > 5 * 1024 * 1024) throw new Error('Cada foto puede pesar máximo 5 MB');
         const datos = new FormData();
         datos.append('foto', f);
         actual = await api<Negocio>('/proveedor/negocio/fotos', { method: 'POST', body: datos });
@@ -71,7 +71,7 @@ export function FotosNegocio({ negocio, onCambio }: { negocio: Negocio; onCambio
         <button type="button" className="p-btn p-btn--borde" disabled={subiendo || fotos.length >= MAX} onClick={() => entrada.current?.click()}>
           {subiendo ? 'Subiendo…' : 'Subir fotos'}
         </button>
-        <span>{fotos.length} de {MAX} fotos · JPG o PNG, hasta 10 MB por foto</span>
+        <span>{fotos.length} de {MAX} fotos · JPG o PNG, hasta 5 MB por foto</span>
       </div>
       {error && <p className="form__error" role="alert">{error}</p>}
     </div>

@@ -1,11 +1,13 @@
 import { Controller, Get } from '@nestjs/common';
-import { CATALOGO } from './categorias';
+import { CategoriasService } from '../../base/categorias.service';
 
 @Controller('categorias')
 export class CategoriasController {
-  // Lista pública de categorías con sus subcategorías (la usan el home, los listados y el registro de negocio)
+  constructor(private cats: CategoriasService) {}
+
+  // Categorías con sus subcategorías (tabla categories). La usan el inicio, los listados y el registro de negocio
   @Get()
   listar() {
-    return CATALOGO;
+    return this.cats.catalogo();
   }
 }

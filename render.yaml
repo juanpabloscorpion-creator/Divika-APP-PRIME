@@ -1,0 +1,24 @@
+# Render Blueprint: crea el backend como Web Service gratis (render.com → New → Blueprint → este repo).
+# La base de datos va aparte en Neon (el Postgres gratis de Render caduca a los 30 días).
+services:
+  - type: web
+    name: divika-api
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: npm run start:prod
+    healthCheckPath: /categorias
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        sync: false
+      - key: PUBLIC_URL
+        sync: false
+      - key: CLOUDINARY_URL
+        sync: false

@@ -13,14 +13,14 @@ import type { Sesion } from '@/types';
 export default function CuentasPage() {
   const router = useRouter();
   const [cuentas, setCuentas] = useState<Sesion[]>([]);
-  const [actual, setActual] = useState<number | null>(null);
+  const [actual, setActual] = useState<string | null>(null);
 
   useEffect(() => {
     setCuentas(listarCuentas());
     setActual(getSesion()?.usuario.id ?? null);
   }, []);
 
-  function cambiar(id: number) {
+  function cambiar(id: string) {
     if (cambiarACuenta(id)) window.location.href = '/home';
   }
   function otra(destino: string) {

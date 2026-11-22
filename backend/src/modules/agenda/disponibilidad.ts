@@ -1,8 +1,14 @@
-import { Negocio } from '../negocios/negocio.entity';
-
 export const DIAS = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
 export const REGLAS_INICIALES = { duracionBase: 60, intervaloMin: 60, anticipacionHoras: 2, maxDias: 60 };
 export const HORARIO_INICIAL = { apertura: '09:00', cierre: '18:00', cerrado: false };
+
+// Datos de un negocio que necesita el motor de horas (salen de business_hours y business_details)
+export type AgendaNegocio = {
+  horariosJson: Record<string, { apertura: string; cierre: string; cerrado: boolean }> | null;
+  bloqueos: { desde: string; hasta: string; motivo: string }[] | null;
+  disponibilidad: Partial<typeof REGLAS_INICIALES> | null;
+};
+
 
 const ZONA = process.env.TZ_NEGOCIOS || 'America/Mexico_City';
 
@@ -34,10 +40,10 @@ export const sumarDias = (fecha: string, n: number) => {
   return d.toISOString().slice(0, 10);
 };
 
-export const reglasDe = (n: Negocio) => ({ ...REGLAS_INICIALES, ...(n.disponibilidad ?? {}) });
+export const reglasDe = (n: Pick<AgendaNegocio, 'disponibilidad'>) => ({ ...REGLAS_INICIALES, ...(n.disponibilidad ?? {}) });
 
 // Horas que se ofrecen en una fecha. "ocupadas" son las citas confirmadas (inicio y duración en minutos).
-export function horasDelDia(n: Negocio, fecha: string, duracion: number, ocupadas: { hora: string; dur: number }[]) {
+export function horasDelDia(n: AgendaNegocio, fecha: string, duracion: number, ocupadas: { hora: string; dur: number }[]) {
   const r = reglasDe(n);
   const ahora = ahoraLocal();
   if (fecha < ahora.fecha) return { abierto: false, motivo: 'Esa fecha ya pasó', horas: [] as { hora: string; libre: boolean }[] };

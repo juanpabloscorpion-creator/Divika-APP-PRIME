@@ -30,7 +30,7 @@ El diseño registra al proveedor en 4 pasos (Cuenta, Negocio, Servicios, Publica
 Cambios en datos existentes:
 - **Usuario:** agregar `apellidos`.
 - **Negocio:** agregar `estado` (`en_proceso` \| `publicado` \| `pausado`), `ciudad`, `colonia`, `descripcion` (máx. 600 caracteres, distinta de `descripcionCorta`), `whatsapp`, `emailPublico`.
-- El `registro/negocio` actual puede quedar como alias de `registro/proveedor` o retirarse.
+- `registro/negocio` se retiró: el alta de negocios es solo con `registro/proveedor`.
 
 | Método | Ruta | Descripción |
 |---|---|---|
@@ -41,7 +41,7 @@ Cambios en datos existentes:
 |---|---|---|
 | GET 🔒 | `/proveedor/negocio` | Su negocio completo, con `estado` y fotos |
 | PUT 🔒 | `/proveedor/negocio` | `{ nombre, categoria, subcategoria?, descripcion, telefono, whatsapp, emailPublico }`. "Los cambios se guardan cuando confirmas": el perfil publicado sigue visible hasta guardar |
-| POST 🔒 | `/proveedor/negocio/fotos` | Subir una foto (JPG o PNG, máx. 10 MB, hasta 10 fotos). Devuelve la foto con su `id` y `url` |
+| POST 🔒 | `/proveedor/negocio/fotos` | Subir una foto (JPG o PNG, máx. 5 MB, hasta 10 fotos). Devuelve la foto con su `id` y `url` |
 | PUT 🔒 | `/proveedor/negocio/fotos/orden` | `{ ids: number[] }` para reordenar ("Arrastra para ordenar"). La primera es la portada |
 | PUT 🔒 | `/proveedor/negocio/fotos/:id` | Cambiar la foto o su etiqueta ("Portada", "Nuestro salón"…) |
 | DELETE 🔒 | `/proveedor/negocio/fotos/:id` | Quitar foto |
@@ -58,7 +58,7 @@ Cambios en datos existentes:
 | POST 🔒 | `/proveedor/servicios` | Crear |
 | GET 🔒 | `/proveedor/servicios/:id` | Detalle |
 | PUT 🔒 | `/proveedor/servicios/:id` | Editar. Si es `'desde'`, el aviso "explica qué puede cambiar el precio" va en `descripcion` |
-| POST 🔒 | `/proveedor/servicios/:id/fotos` | Hasta 6 fotos de resultado, JPG o PNG, máx. 10 MB |
+| POST 🔒 | `/proveedor/servicios/:id/fotos` | Hasta 6 fotos de resultado, JPG o PNG, máx. 5 MB |
 | DELETE 🔒 | `/proveedor/servicios/:id/fotos/:fotoId` | Quitar foto |
 | POST 🔒 | `/proveedor/servicios/:id/pausar`, `/publicar` | "Pausar servicio sin eliminarlo". Las citas confirmadas no cambian |
 | DELETE 🔒 | `/proveedor/servicios/:id` | Eliminar |

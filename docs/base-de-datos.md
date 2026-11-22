@@ -1,153 +1,75 @@
-# Base de datos
+# Base de datos (PostgreSQL)
 
-TypeORM crea las tablas solas (`synchronize: true`, solo para desarrollo). La fuente de verdad son los `*.entity.ts` en `backend/src/modules/`.
+El backend usa **PostgreSQL + PostGIS** con el diagrama del equipo de backend:
 
-```mermaid
-erDiagram
-  usuarios ||--o{ negocios : "es dueño (owner)"
-  usuarios ||--o{ resenas : escribe
-  negocios ||--o{ resenas : recibe
-  usuarios ||--o{ favoritos : marca
-  usuarios ||--o{ reportes_problema : envia
-  negocios ||--o{ servicios : ofrece
-  negocios ||--o{ citas : recibe
-  usuarios ||--o{ citas : solicita
-  servicios ||--o{ citas : "se reserva en"
-  negocios ||--o{ mensajes : conversa
-  usuarios ||--o{ mensajes : escribe
-  negocios ||--o{ favoritos : "es marcado"
+- [`divika.dbml`](divika.dbml): diagrama original del equipo (18 tablas). Se respeta tal cual: nombres, tipos, enums, índices y llaves.
+- [`divika-completo.dbml`](divika-completo.dbml): el mismo diagrama **más 10 tablas extra** para lo que el front ya hace y el diagrama no cubre. Se puede pegar en [dbdiagram.io](https://dbdiagram.io) para verlo.
 
-  usuarios {
-    int id PK
-    string nombre
-    string apellidos "solo proveedores"
-    string email UK
-    string passwordHash "nulo si entra con Google/Apple"
-    string rol "cliente | negocio"
-    string telefono UK
-    bool telefonoVerificado
-    string telefonoPendiente "numero por confirmar con codigo"
-    string fechaNacimiento "AAAA-MM-DD"
-    string ciudad
-    string avatarUrl
-    json preferencias "notificaciones y privacidad"
-    string codigoOtp
-    date otpExpiraEn
-    string googleId UK
-    string appleId UK
-    date creadoEn
-  }
-  servicios {
-    int id PK
-    string nombre
-    string descripcion
-    float precio "nulo = a consultar"
-    int duracionMin
-    bool activo
-    int negocioId FK
-  }
-  citas {
-    int id PK
-    int negocioId FK
-    int clienteId FK
-    int servicioId FK
-    string fecha "AAAA-MM-DD"
-    string hora "HH:MM"
-    int personas
-    string notas
-    string metodoPago "informativo"
-    string estado "solicitada | confirmada | propuesta | rechazada | cancelada"
-    string propuestaFecha
-    string propuestaHora
-    date creadoEn
-  }
-  mensajes {
-    int id PK
-    int negocioId FK
-    int clienteId FK
-    string de "cliente | negocio"
-    string texto
-    bool leido
-    date creadoEn
-  }
-  reportes_problema {
-    int id PK
-    string tipo "aplicacion | reserva | pagos | cancelaciones | servicio | otro"
-    string descripcion "max 1000"
-    int usuarioId FK
-    date creadoEn
-  }
-  negocios {
-    int id PK
-    string nombre
-    string rfc UK
-    string descripcionCorta "para las cards"
-    string descripcion "perfil, max 600 caracteres"
-    string categoria
-    string subcategoria "opcional, debe pertenecer a la categoria"
-    string telefono
-    string direccion
-    string ciudad
-    string colonia
-    string whatsapp
-    string emailPublico
-    string estado "en_proceso | publicado | pausado; solo publicado sale en el directorio"
-    float latitud
-    float longitud
-    json horariosJson
-    string horario
-    float calificacion "promedio de resenas"
-    string imagenUrl
-    json galeria
-    json metodosPago "efectivo, transferencia, tarjeta"
-    json cobertura "radioKm y zonas"
-    int clicsWhatsapp
-    int clicsLlamada
-    int ownerId FK
-    date creadoEn
-  }
-  resenas {
-    int id PK
-    int calificacion "1 a 5"
-    text comentario
-    text respuesta "del negocio"
-    date respuestaEn
-    int usuarioId FK
-    int negocioId FK
-    date creadoEn
-  }
-  interesados {
-    int id PK
-    string nombreNegocio
-    string servicio
-    string telefono
-    string ciudad
-    date creadoEn
-  }
-  notificaciones {
-    int id PK
-    int usuarioId FK
-    string tipo "cita, mensaje o resena"
-    string titulo
-    string detalle
-    string enlace
-    bool leida
-    date creadoEn
-  }
-  favoritos {
-    int id PK
-    int usuarioId FK
-    int negocioId FK "unico junto con usuarioId"
-    date creadoEn
-  }
+Código: entidades en `backend/src/entidades/` (un archivo por área) y la migración que crea todo en `backend/src/migraciones/`. Las migraciones corren solas al arrancar el backend (`synchronize` está apagado).
+
+## Tablas del diagrama y qué las usa
+
+| Tabla | Uso en la app |
+|---|---|
+| `usuarios` | Cuentas. `rol`: `consumidor` = cliente, `vendedor` = proveedor. `n_completo` guarda nombre y apellidos juntos. `verificacion_tel` con fecha = teléfono verificado. Baja de cuenta = `estatus 'eliminado'` + `eliminada` (borrado lógico; se anonimizan correo, nombre y teléfono) |
+| `otp_codes` | Códigos de 4 dígitos: entrar con código (`purpose 'login'`) y cambiar teléfono (`'phone_verify'`). `destination` en E.164 (`+52…`) o correo. 10 min de vigencia, 5 intentos, 1 envío por minuto |
+| `categories` | Categorías (`parent_id` NULL) y subcategorías (con `parent_id`). Se siembran al arrancar desde `backend/src/modules/negocios/categorias.ts` |
+| `businesses` | Negocio. `status`: `draft` (en alta) → `pending` al publicar (sale en el directorio mientras se verifica) → `verificado`. Los de ejemplo son `source 'precargado'`, `verificado` y sin dueño. `cover_url` = primera foto |
+| `business_addresses` | Calle, colonia, ciudad, estado, CP y `location` (geography Point 4326, índice GIST) |
+| `business_categories` | Categoría principal (`is_primary`) y subcategoría |
+| `business_hours` | Un renglón por día (`weekday` 0 = domingo) |
+| `business_photos` | Galería (`type 'galeria'`, `position`). Máx. 5 MB por foto |
+| `favorites`, `reviews` | Favoritos y reseñas. Una reseña por persona y negocio (si vuelve a opinar se actualiza). La calificación del negocio es el promedio de sus reseñas `publicado` (no se guarda en `businesses`) |
+| `contact_events` | Clics en WhatsApp y llamar (estadísticas del portal) |
+| `audit_log` | Registro de alta de proveedor, publicar, pausar y baja de cuenta |
+| `autenticacion`, `refresh_tokens`, `device_tokens`, `verification_requests`, `verification_documents`, `business_claims` | **Creadas, sin uso todavía**: Google/Apple, sesiones largas, push y verificación de negocios siguen como "próximamente" |
+
+## Tablas extra (no están en el diagrama)
+
+| Tabla | Por qué hace falta |
+|---|---|
+| `user_profiles` | Fecha de nacimiento, ciudad, foto y preferencias de "Editar perfil" |
+| `business_details` | Descripción larga, correo público, formas e instrucciones de pago, atención a domicilio, referencias, cobertura, reglas de reserva, días bloqueados, pausa y si la ubicación ya la marcó el negocio (`location_confirmed`) |
+| `services` | Servicios del negocio (precio, duración, modalidad, costo de traslado, foto) |
+| `appointments` | Citas: `solicitada → confirmada / rechazada`, `propuesta`, `cancelada` |
+| `messages` | Chat cliente ↔ negocio |
+| `notifications` | Avisos dentro de la web |
+| `review_replies` | Respuesta del negocio a una reseña |
+| `business_views` | Visitas al perfil (gráfica del portal) |
+| `support_reports` | "Reportar un problema" |
+| `provider_leads` | Formulario "Únete gratis" de la landing |
+
+## Decisiones para revisar con el equipo de backend
+
+1. **`business_addresses.postal_code`, `state` y `location` son obligatorios**, pero el registro de proveedor solo pide ciudad y colonia. Al registrarse se guarda `postal_code ''`, `state 'Durango'` y `location` en el centro de Durango con `location_confirmed = false` (la API no muestra esas coordenadas hasta que el negocio marca su punto).
+2. **Reseñas** se guardan como `publicado` al momento porque no hay panel de moderación (el diagrama pone `pendiente` por defecto).
+3. **Publicar** pasa el negocio a `pending`; el directorio muestra `pending` y `verificado`. Cuando exista la verificación, un admin lo pasará a `verificado` (o `rechazado`).
+4. **Pausar** no cambia `status`: usa `business_details.paused_at`, para no confundirlo con `suspendido` (acción de admin).
+5. Los negocios de ejemplo no traen reseñas inventadas: su calificación es 0 hasta que alguien opine.
+
+## Cómo se arma la respuesta de un negocio
+
+La API sigue entregando el mismo objeto `Negocio` de antes (el front no cambió). `backend/src/base/negocio-vista.service.ts` lo arma así:
+
+| Campo de la API | Sale de |
+|---|---|
+| `nombre`, `telefono`, `whatsapp`, `rfc`, `sitioWeb`, `descripcionCorta`, `imagenUrl` | `businesses.trade_name, phone_public, whatsapp, tax_id, website, short_description, cover_url` |
+| `categoria`, `subcategoria` | `business_categories` + `categories` (slug de la principal, nombre de la sub) |
+| `calle`, `colonia`, `ciudad`, `codigoPostal`, `direccion`, `latitud`, `longitud` | `business_addresses` |
+| `horariosJson` | `business_hours` |
+| `galeria` | `business_photos` |
+| `descripcion`, `emailPublico`, `metodosPago`, `instruccionesPago`, `mostrarPagoPerfil`, `atiendeDomicilio`, `referencias`, `cobertura` | `business_details` |
+| `estado` | `draft` → `en_proceso`; pausado / `suspendido` / `rechazado` → `pausado`; `pending` / `verificado` → `publicado` |
+| `verificado` | `status = 'verificado'` |
+| `calificacion`, `totalResenas` | promedio y conteo de `reviews` publicadas |
+| `clicsWhatsapp`, `clicsLlamada` | conteo de `contact_events` |
+
+Todos los `id` son **uuid** (texto).
+
+## Comandos útiles (desde `backend/`)
+
+```bash
+npm run migracion:correr                                   # aplica migraciones pendientes (también pasa al arrancar)
+npm run migracion:generar -- src/migraciones/NombreCambio  # tras cambiar una entidad, genera la migración
+npm run typeorm -- migration:revert                        # deshace la última
 ```
-
-`negocios` también guarda `calle`, `referencias`, `atiendeDomicilio`, `instruccionesPago` (privado), `mostrarPagoPerfil` y `visitasPorDia` (json privado, 30 días; en PostgreSQL conviene una tabla `visitas(negocioId, fecha, total)`). `servicios` suma `categoria`, `modalidad`, `costoTraslado`, `indicaciones` y `fotoUrl`.
-
-`negocios.disponibilidad` (json: duracionBase, intervaloMin, anticipacionHoras, maxDias) y `negocios.bloqueos` (json: lista de {desde, hasta, motivo}) junto con `horariosJson` definen las horas reservables. En PostgreSQL pueden ser `jsonb` o tablas aparte. `notificaciones` pertenece a un usuario (cliente o negocio).
-
-`interesados` guarda los contactos del formulario "Únete gratis" de la landing (sin cuenta, sin relaciones).
-
-Las tablas del portal del proveedor que faltan (servicios, solicitudes y citas, mensajes, notificaciones, disponibilidad, formas de pago) están descritas por sus datos en [`api-portal-proveedor.md`](api-portal-proveedor.md).
-
-Al borrar un usuario o negocio se borran en cascada sus reseñas y favoritos; si se borra el dueño de un negocio, `ownerId` queda nulo.

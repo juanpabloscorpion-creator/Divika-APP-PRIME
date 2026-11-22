@@ -13,7 +13,7 @@ const SEMANA = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
 // Tarjeta de reserva del detalle web: servicio, lugar, fecha y hora en un solo lugar
 export function ReservaLinea({ negocio, servicios }: { negocio: NegocioDetalle; servicios: Servicio[] }) {
-  const [servicioId, setServicioId] = useState<number | null>(null);
+  const [servicioId, setServicioId] = useState<string | null>(null);
   const [lugar, setLugar] = useState<'local' | 'domicilio'>('local');
   const [direccion, setDireccion] = useState('');
   const [personas, setPersonas] = useState(1);
@@ -84,7 +84,7 @@ export function ReservaLinea({ negocio, servicios }: { negocio: NegocioDetalle; 
 
       {servicios.length > 0 && (
         <label className="wa-campo">Servicio
-          <select value={servicioId ?? ''} onChange={(e) => setServicioId(e.target.value ? Number(e.target.value) : null)}>
+          <select value={servicioId ?? ''} onChange={(e) => setServicioId(e.target.value || null)}>
             <option value="">Elige un servicio</option>
             {servicios.map((s) => <option key={s.id} value={s.id}>{s.nombre} · {pesos(s.precio)}</option>)}
           </select>

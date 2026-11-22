@@ -22,7 +22,7 @@ export class ActualizarPerfilDto {
   @IsOptional()
   @IsString()
   @IsNotEmpty({ message: 'El nombre del negocio es obligatorio' })
-  @MaxLength(120, { message: 'El nombre es demasiado largo' })
+  @MaxLength(100, { message: 'El nombre puede tener máximo 100 caracteres' })
   nombre?: string;
 
   @IsOptional()
@@ -52,10 +52,12 @@ export class ActualizarPerfilDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100, { message: 'La ciudad puede tener máximo 100 caracteres' })
   ciudad?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(100, { message: 'La colonia puede tener máximo 100 caracteres' })
   colonia?: string;
 
   @IsOptional()
@@ -70,7 +72,7 @@ export class ActualizarPerfilDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(160, { message: 'La calle y número pueden tener máximo 160 caracteres' })
+  @MaxLength(150, { message: 'La calle y número pueden tener máximo 150 caracteres' })
   calle?: string;
 
   @IsOptional()

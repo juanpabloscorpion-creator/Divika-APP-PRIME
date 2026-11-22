@@ -13,9 +13,9 @@ export function useFavoritos() {
     api<Negocio[]>('/favoritos').then(setLista).catch((e: Error) => { setError(e.message); setLista([]); });
   }, []);
 
-  const esFavorito = useCallback((id: number) => !!lista?.some((n) => n.id === id), [lista]);
+  const esFavorito = useCallback((id: string) => !!lista?.some((n) => n.id === id), [lista]);
 
-  const quitar = useCallback(async (id: number) => {
+  const quitar = useCallback(async (id: string) => {
     const antes = lista;
     setLista((l) => l && l.filter((n) => n.id !== id));
     try { await api(`/favoritos/${id}`, { method: 'DELETE' }); } catch (e) { setLista(antes); setError(e instanceof Error ? e.message : 'No se pudo quitar'); }
