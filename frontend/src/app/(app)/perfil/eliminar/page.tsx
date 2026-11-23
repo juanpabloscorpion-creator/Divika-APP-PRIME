@@ -2,13 +2,11 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { CabeceraPerfil } from '@/components/perfil/Cabecera';
-import { Aviso } from '@/components/ui/Aviso';
-import { Button } from '@/components/ui/Button';
-import { IconWarning } from '@/components/ui/icons';
+import { EncabezadoCuenta } from '@/components/cuenta/Cuenta';
 import { api } from '@/lib/api';
 import { cerrarSesion } from '@/lib/auth';
 
+// "Web · Eliminar cuenta"
 export default function EliminarCuentaPage() {
   const router = useRouter();
   const [error, setError] = useState('');
@@ -29,20 +27,20 @@ export default function EliminarCuentaPage() {
 
   return (
     <>
-      <CabeceraPerfil titulo="Eliminar cuenta" />
-      {error && <Aviso onClose={() => setError('')}>{error}</Aviso>}
-      <div className="eliminar">
-        <span className="eliminar__sello"><IconWarning /></span>
-        <h2>¿Seguro que quieres eliminar tu cuenta?</h2>
-        <p>Esta acción es permanente y no se puede deshacer.</p>
-      </div>
-      <div className="grupo">
-        <div className="ajuste"><span className="ajuste__texto"><strong>Se borra tu perfil</strong><small>Nombre, correo, teléfono y foto</small></span></div>
-        <div className="ajuste"><span className="ajuste__texto"><strong>Se borran tus favoritos y reseñas</strong><small>No podrás recuperarlos</small></span></div>
-        <div className="ajuste"><span className="ajuste__texto"><strong>Se cierra tu sesión</strong><small>En todos los dispositivos</small></span></div>
-      </div>
-      <Button variant="secondary" className="btn--block btn--borde" onClick={() => router.push('/perfil')}>Cancelar</Button>
-      <Button className="btn--block btn--peligro" disabled={borrando} onClick={eliminar}>{borrando ? 'Eliminando…' : 'Sí, eliminar mi cuenta'}</Button>
+      <EncabezadoCuenta titulo="Eliminar cuenta" sub="Revisa la información antes de continuar." />
+      <section className="acc-tarjeta cta-eliminar">
+        <h2 className="acc-h2-grande">¿Quieres eliminar tu cuenta?</h2>
+        <p className="cta-peligro-texto">Esta acción es permanente y no se puede deshacer.</p>
+        <div><h3 className="cta-h3">Perderás tu información</h3><p className="acc-texto">Se borran tus datos de perfil, tu foto, tus favoritos y tus reseñas.</p></div>
+        <div><h3 className="cta-h3">No podrás recuperar tu historial</h3><p className="acc-texto">Tus reservas y favoritos dejarán de estar disponibles para ti.</p></div>
+        <div><h3 className="cta-h3">Revisa tus reservas pendientes</h3><p className="acc-texto">Cancela o confirma tus citas con cada negocio antes de eliminar la cuenta.</p></div>
+        <p className="acc-nota">Los negocios conservan el registro de las citas que tuviste con ellos, a nombre de “Cuenta eliminada”.</p>
+        {error && <p className="acc-error" role="alert">{error}</p>}
+        <div className="acc-redes">
+          <button type="button" className="acc-btn-borde" onClick={() => router.push('/perfil')}>Cancelar</button>
+          <button type="button" className="acc-btn cta-btn-peligro" disabled={borrando} onClick={eliminar}>{borrando ? 'Eliminando…' : 'Sí, eliminar mi cuenta'}</button>
+        </div>
+      </section>
     </>
   );
 }

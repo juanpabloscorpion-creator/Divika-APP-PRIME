@@ -1,36 +1,31 @@
-'use client';
+import { EncabezadoCuenta } from '@/components/cuenta/Cuenta';
 
-import { useState } from 'react';
-import { CabeceraPerfil } from '@/components/perfil/Cabecera';
-import { Aviso } from '@/components/ui/Aviso';
-import { Button } from '@/components/ui/Button';
-import { IconCard } from '@/components/ui/icons';
+// "Web · Formas de pago personales". Divika NO guarda tarjetas ni cobra: el pago se acuerda con cada negocio.
+// Por eso aquí no hay tarjetas ni formulario para capturarlas; solo se explica cómo se paga.
+const METODOS = [
+  ['Efectivo', 'Pagas en el negocio o al terminar el servicio.'],
+  ['Transferencia', 'El negocio te comparte sus datos para transferir.'],
+  ['Tarjeta', 'Si el negocio la acepta, pagas en su terminal.'],
+] as const;
 
-export default function PagosPage() {
-  const [aviso, setAviso] = useState('');
+export default function FormasDePagoPage() {
   return (
     <>
-      <CabeceraPerfil titulo="Formas de pago" />
-      {aviso && <Aviso onClose={() => setAviso('')}>{aviso}</Aviso>}
-      <p className="nota-gris">Vista de demostración: Divika no guarda datos reales de tarjeta. Las tarjetas de abajo son de ejemplo.</p>
-
-      <h2 className="seccion-titulo">Mis tarjetas (ejemplo)</h2>
-      <div className="tarjeta-pago">
-        <div className="tarjeta-pago__cab"><span>VISA</span><span className="etiqueta-chica">Principal</span></div>
-        <div className="tarjeta-pago__fila"><IconCard /><span>···· 4242<small>Vence 12/28</small></span></div>
-      </div>
-      <div className="tarjeta-pago">
-        <div className="tarjeta-pago__cab"><span>Mastercard</span></div>
-        <div className="tarjeta-pago__fila"><IconCard /><span>···· 9018<small>Vence 03/27</small></span></div>
-      </div>
-
-      <Button variant="secondary" className="btn--block" onClick={() => setAviso('Agregar formas de pago estará disponible pronto')}>Agregar forma de pago</Button>
-
-      <h2 className="seccion-titulo">Métodos disponibles</h2>
-      <div className="grupo">
-        <div className="ajuste"><span className="ajuste__texto"><strong>Tarjeta de crédito o débito</strong></span></div>
-        <div className="ajuste"><span className="ajuste__texto"><strong>Pago en el negocio</strong></span></div>
-      </div>
+      <EncabezadoCuenta titulo="Formas de pago" sub="Cómo pagas tus servicios en Divika." />
+      <section className="acc-tarjeta">
+        <h2>Pagas directamente al negocio</h2>
+        <p className="acc-texto">Divika te conecta con negocios locales, pero no hace cobros ni guarda tarjetas. Cada negocio muestra en su perfil las formas de pago que acepta, y al reservar puedes indicarle cómo piensas pagar.</p>
+        <div className="cta-metodos">
+          {METODOS.map(([t, d]) => (
+            <div key={t} className="cta-metodo"><strong>{t}</strong><small>{d}</small></div>
+          ))}
+        </div>
+      </section>
+      <section className="acc-panel">
+        <h2 className="cta-h2-panel">Cuida tus datos</h2>
+        <p>Si un negocio te pide transferir, confirma sus datos en su perfil de Divika o directamente con él.</p>
+        <p className="acc-error">Nunca compartas los datos completos de tu tarjeta ni códigos de seguridad por mensaje.</p>
+      </section>
     </>
   );
 }

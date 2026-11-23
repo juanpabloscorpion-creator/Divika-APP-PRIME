@@ -1,95 +1,104 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { ReactNode, useEffect, useState } from 'react';
-import { Atras } from '@/components/layout/Atras';
-import { Avatar } from '@/components/perfil/Avatar';
-import {
-  IconCard, IconBell, IconFlag, IconHelp, IconLock, IconLogout, IconShield, IconTrash, IconUser, IconUsers,
-} from '@/components/ui/icons';
-import { cerrarSesion, getUsuario } from '@/lib/auth';
-import { cx } from '@/lib/cx';
-import type { Usuario } from '@/types';
-import Link from 'next/link';
+import { FormEvent, useEffect, useRef, useState } from 'react';
+import { EncabezadoCuenta } from '@/components/cuenta/Cuenta';
+import { api } from '@/lib/api';
+import { guardarPendiente, soloDigitos } from '@/lib/codigo';
+import { formatoTelefono } from '@/lib/formato';
+import { useCuenta } from '@/lib/useCuenta';
+import type { Cuenta } from '@/types';
 
-type Opcion = { texto: string; icono: ReactNode; href?: string; accion?: () => void; peligro?: boolean };
-
-export default function PerfilPage() {
+// "Web · Mi perfil"
+export default function MiPerfilPage() {
   const router = useRouter();
-  const [usuario, setUsuario] = useState<Usuario | null>(null);
+  const { cuenta, setCuenta, error: errorCarga } = useCuenta();
+  const [nombre, setNombre] = useState('');
+  const [email, setEmail] = useState('');
+  const [telefono, setTelefono] = useState('');
+  const [nacimiento, setNacimiento] = useState('');
+  const [ciudad, setCiudad] = useState('');
+  const [error, setError] = useState('');
+  const [ok, setOk] = useState('');
+  const [guardando, setGuardando] = useState(false);
+  const archivo = useRef<HTMLInputElement>(null);
 
-  useEffect(() => setUsuario(getUsuario()), []);
+  useEffect(() => {
+    if (!cuenta) return;
+    setNombre(cuenta.nombre);
+    setEmail(cuenta.email);
+    setTelefono(cuenta.telefono ? formatoTelefono(cuenta.telefono) : '');
+    setNacimiento(cuenta.fechaNacimiento ?? '');
+    setCiudad(cuenta.ciudad ?? '');
+  }, [cuenta]);
 
-  function salir() {
-    cerrarSesion();
-    router.push('/');
+  async function foto(f?: File | null) {
+    setError('');
+    setOk('');
+    try {
+      if (f) {
+        const datos = new FormData();
+        datos.append('foto', f);
+        setCuenta(await api<Cuenta>('/cuenta/foto', { method: 'POST', body: datos }));
+        setOk('Foto actualizada');
+      } else {
+        setCuenta(await api<Cuenta>('/cuenta/foto', { method: 'DELETE' }));
+        setOk('Foto eliminada');
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo cambiar la foto');
+    }
   }
 
-  const secciones: { titulo: string; opciones: Opcion[] }[] = [
-    {
-      titulo: 'Cuenta',
-      opciones: [
-        { texto: 'Editar perfil', icono: <IconUser />, href: '/perfil/editar' },
-        { texto: 'Seguridad', icono: <IconShield />, href: '/perfil/seguridad' },
-        { texto: 'Notificaciones', icono: <IconBell />, href: '/perfil/notificaciones' },
-        { texto: 'Privacidad', icono: <IconLock />, href: '/perfil/privacidad' },
-      ],
-    },
-    {
-      titulo: 'Soporte y ayuda',
-      opciones: [
-        { texto: 'Formas de pago', icono: <IconCard />, href: '/perfil/pagos' },
-        { texto: 'Soporte y ayuda', icono: <IconHelp />, href: '/perfil/soporte' },
-      ],
-    },
-    {
-      titulo: 'Acciones',
-      opciones: [
-        { texto: 'Reporta problema', icono: <IconFlag />, href: '/perfil/reportar' },
-        { texto: 'Agregar cuenta', icono: <IconUsers />, href: '/perfil/cuentas' },
-        { texto: 'Eliminar cuenta', icono: <IconTrash />, href: '/perfil/eliminar', peligro: true },
-        { texto: 'Cerrar sesión', icono: <IconLogout />, accion: salir },
-      ],
-    },
-  ];
+  async function guardar(e: FormEvent) {
+    e.preventDefault();
+    if (!cuenta) return;
+    setError('');
+    setOk('');
+    setGuardando(true);
+    try {
+      setCuenta(await api<Cuenta>('/cuenta', { method: 'PUT', body: { nombre, email, fechaNacimiento: nacimiento || undefined, ciudad } }));
+      // Si cambió el teléfono, se confirma con un código antes de guardarlo
+      const nuevo = soloDigitos(telefono).slice(-10);
+      if (nuevo && nuevo !== soloDigitos(cuenta.telefono ?? '')) {
+        const { segundosEspera } = await api<{ segundosEspera: number }>('/cuenta/telefono/codigo', { method: 'POST', body: { telefono: nuevo } });
+        guardarPendiente({ canal: 'sms', destino: nuevo, proximoEnvio: Date.now() + segundosEspera * 1000 });
+        return router.push('/perfil/editar/codigo');
+      }
+      setOk('Cambios guardados');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudieron guardar los cambios');
+    } finally {
+      setGuardando(false);
+    }
+  }
 
   return (
     <>
-      <div className="cabecera">
-        <Atras href="/home" />
-        <h1 className="titulo">Perfil</h1>
-      </div>
-
-      <Avatar nombre={usuario?.nombre ?? ''} url={usuario?.avatarUrl} editarHref="/perfil/editar" />
-      {usuario && (
-        <p className="perfil-nombre">
-          <strong>{usuario.nombre}</strong>
-          <span>{usuario.email}</span>
-        </p>
+      <EncabezadoCuenta titulo="Mi perfil" sub="Mantén actualizados los datos de tu cuenta." />
+      {errorCarga && <p className="acc-error">{errorCarga}</p>}
+      {cuenta && (
+        <form className="acc-tarjeta acc-form" onSubmit={guardar}>
+          <div className="cta-perfil-cab">
+            {cuenta.avatarUrl ? <img src={cuenta.avatarUrl} alt="" className="cta-avatar" /> : <span className="cta-avatar cta-avatar--letra">{cuenta.nombre.charAt(0)}</span>}
+            <h2>{cuenta.nombre}</h2>
+            <input ref={archivo} type="file" accept="image/png,image/jpeg" hidden onChange={(e) => { foto(e.target.files?.[0]); e.target.value = ''; }} />
+            <span className="cta-perfil-cab__botones">
+              {cuenta.avatarUrl && <button type="button" className="acc-enlace-boton" onClick={() => foto(null)}>Quitar foto</button>}
+              <button type="button" className="acc-btn-borde" onClick={() => archivo.current?.click()}>Cambiar foto</button>
+            </span>
+          </div>
+          <label className="acc-campo">Nombre completo<input value={nombre} onChange={(e) => setNombre(e.target.value)} autoComplete="name" required maxLength={80} /></label>
+          <label className="acc-campo">Correo electrónico<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" required /></label>
+          <label className="acc-campo">Teléfono<input type="tel" inputMode="tel" value={telefono} onChange={(e) => setTelefono(e.target.value)} placeholder="618 123 4567" /></label>
+          <p className="acc-nota">{cuenta.telefono && cuenta.telefonoVerificado ? 'Teléfono verificado. ' : ''}Si lo cambias, te enviaremos un código para confirmarlo.</p>
+          <label className="acc-campo">Fecha de nacimiento<input type="date" value={nacimiento} max={new Date().toISOString().slice(0, 10)} onChange={(e) => setNacimiento(e.target.value)} /></label>
+          <label className="acc-campo">Ciudad<input value={ciudad} onChange={(e) => setCiudad(e.target.value)} autoComplete="address-level2" placeholder="Durango" /></label>
+          {error && <p className="acc-error" role="alert">{error}</p>}
+          {ok && <p className="cta-ok" role="status">{ok}</p>}
+          <button type="submit" className="acc-btn" disabled={guardando}>{guardando ? 'Guardando…' : 'Guardar cambios'}</button>
+        </form>
       )}
-
-      {secciones.map(({ titulo, opciones }) => (
-        <section key={titulo} className="perfil-seccion">
-          <h2 className="menu-titulo">{titulo}</h2>
-          <ul className="menu">
-            {opciones.map(({ texto, icono, href, accion, peligro }) => (
-              <li key={texto}>
-                {href ? (
-                  <Link href={href} className={cx('menu__item', peligro && 'menu__item--peligro')}>
-                    <span aria-hidden>{icono}</span>
-                    <span>{texto}</span>
-                  </Link>
-                ) : (
-                  <button type="button" className={cx('menu__item', peligro && 'menu__item--peligro')} onClick={accion}>
-                    <span aria-hidden>{icono}</span>
-                    <span>{texto}</span>
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
     </>
   );
 }

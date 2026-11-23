@@ -6,6 +6,7 @@ import { createContext, ReactNode, useContext, useState } from 'react';
 import { ICONOS_CATEGORIA, ICONO_GENERICO } from '../home/categoriaIconos';
 import { Cabecera } from './Cabecera';
 import { BannerApp, PieSimple } from './Pie';
+import { LateralCuenta, esRutaCuenta } from '../cuenta/Cuenta';
 import { useCategorias } from '@/lib/categorias';
 import { cx } from '@/lib/cx';
 
@@ -36,13 +37,22 @@ export function MarcoWeb({ children }: { children: ReactNode }) {
   const conBarra = !inicio && (!!categoria || ruta.startsWith('/negocio/'));
   // Las pantallas con diseño web usan todo el ancho; las demás (perfil, favoritos...) van en una columna centrada
   const ancho = inicio || !!categoria || detalle;
+  // "Mi cuenta" (perfil, reservas, favoritos…): menú lateral + contenido
+  const cuenta = esRutaCuenta(ruta) || ruta === '/reservaciones' || ruta === '/favoritos';
 
   return (
     <Ctx.Provider value={setActiva}>
       <div className="web-pagina wa">
         <Cabecera variante={inicio ? 'inicio' : 'interior'} />
         {conBarra && <BarraCategorias activa={categoria ?? activaPantalla} />}
-        <main className={cx('wa-contenido', !ancho && 'wa-contenido--estrecho')}>{children}</main>
+        {cuenta ? (
+          <div className="cta">
+            <LateralCuenta />
+            <main className="cta-main">{children}</main>
+          </div>
+        ) : (
+          <main className={cx('wa-contenido', !ancho && 'wa-contenido--estrecho')}>{children}</main>
+        )}
         {inicio && <BannerApp />}
         <PieSimple />
       </div>

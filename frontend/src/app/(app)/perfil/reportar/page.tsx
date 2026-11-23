@@ -1,37 +1,40 @@
 'use client';
 
-import { useState } from 'react';
-import { CabeceraPerfil } from '@/components/perfil/Cabecera';
-import { Aviso } from '@/components/ui/Aviso';
-import { Button } from '@/components/ui/Button';
-import { IconCheck } from '@/components/ui/icons';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { EncabezadoCuenta } from '@/components/cuenta/Cuenta';
 import { api } from '@/lib/api';
 import { getUsuario } from '@/lib/auth';
 import { cx } from '@/lib/cx';
 
 const TIPOS = [
-  ['aplicacion', 'Problema con la aplicación', 'Algo no funciona como esperabas'],
-  ['reserva', 'Problema con una reservación', 'Fechas, horarios o confirmaciones'],
-  ['pagos', 'Problema con pagos', 'Cobros o métodos de pago'],
-  ['cancelaciones', 'Cancelaciones', 'Cancelar o reprogramar'],
-  ['servicio', 'Problema con un servicio', 'Atención del negocio'],
-  ['otro', 'Otro', 'Cualquier otro tema'],
+  ['aplicacion', 'Error en el sitio web'],
+  ['reserva', 'Problema con una reserva'],
+  ['pagos', 'Pagos y cobros'],
+  ['cancelaciones', 'Cancelaciones y reembolsos'],
+  ['servicio', 'Problema con el servicio'],
+  ['otro', 'Otro'],
 ] as const;
 
+// "Web · Reportar un problema" (se guarda en support_reports)
 export default function ReportarPage() {
   const [tipo, setTipo] = useState<string>('');
-  const [paso, setPaso] = useState(1);
   const [texto, setTexto] = useState('');
   const [error, setError] = useState('');
+  const [aviso, setAviso] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [listo, setListo] = useState(false);
-  const email = typeof window !== 'undefined' ? getUsuario()?.email : '';
+  const [email, setEmail] = useState('');
+  useEffect(() => setEmail(getUsuario()?.email ?? ''), []);
+  const nombreTipo = TIPOS.find(([id]) => id === tipo)?.[1] ?? '';
 
   async function enviar() {
     setError('');
+    if (!tipo) return setError('Selecciona una categoría.');
+    if (texto.trim().length < 5) return setError('Cuéntanos un poco más del problema.');
     setEnviando(true);
     try {
-      await api('/soporte/reportes', { method: 'POST', body: { tipo, descripcion: texto } });
+      await api('/soporte/reportes', { method: 'POST', body: { tipo, descripcion: texto.trim() } });
       setListo(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo enviar el reporte');
@@ -43,48 +46,47 @@ export default function ReportarPage() {
   if (listo) {
     return (
       <>
-        <CabeceraPerfil titulo="Reportar un problema" />
-        <div className="eliminar">
-          <span className="eliminar__sello" style={{ background: 'var(--color-categorias)', color: 'var(--color-primario)' }}><IconCheck /></span>
+        <EncabezadoCuenta titulo="Reportar un problema" />
+        <section className="acc-tarjeta acc-listo">
+          <svg className="acc-listo__check" viewBox="0 0 24 24" width="36" height="36" aria-hidden><path d="M4 12.5l5 5L20 6.5" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>
           <h2>Recibimos tu reporte</h2>
-          <p>Gracias por avisarnos. Te responderemos a {email}.</p>
-        </div>
-        <Button className="btn--block" onClick={() => history.back()}>Listo</Button>
+          <p className="acc-texto">Gracias por avisarnos. Te responderemos a {email}.</p>
+          <Link href="/perfil/soporte" className="acc-btn cta-btn-auto">Volver a Ayuda</Link>
+        </section>
       </>
     );
   }
 
   return (
     <>
-      <CabeceraPerfil titulo="Reportar un problema" atras={paso === 2 ? '/perfil/reportar' : '/perfil'} />
-      {error && <Aviso onClose={() => setError('')}>{error}</Aviso>}
-
-      {paso === 1 ? (
-        <>
-          <p className="subtitulo">¿Qué tipo de problema tienes?</p>
-          <div className="opciones-radio" role="radiogroup">
-            {TIPOS.map(([id, titulo, detalle]) => (
-              <button key={id} type="button" role="radio" aria-checked={tipo === id} className={cx('opcion-radio', tipo === id && 'opcion-radio--activa')} onClick={() => setTipo(id)}>
-                <span><strong>{titulo}</strong><small>{detalle}</small></span>
-                <span className="opcion-radio__punto" />
+      <EncabezadoCuenta titulo="Reportar un problema" sub="Describe lo que ocurrió para que podamos revisarlo." />
+      <div className="cta-dos">
+        <section className="acc-tarjeta acc-form">
+          <label className="acc-campo">Tipo de problema<input readOnly value={nombreTipo} placeholder="Elige una categoría a la derecha" /></label>
+          <label className="acc-campo">Describe el problema
+            <textarea className="cta-textarea" value={texto} maxLength={1000} onChange={(e) => setTexto(e.target.value)} placeholder="Ej. Al abrir el detalle de mi reserva, la pantalla se queda en blanco." />
+          </label>
+          <p className="acc-nota">{texto.length} / 1000 caracteres</p>
+          <h3 className="cta-h3">Captura de pantalla (opcional)</h3>
+          <button type="button" className="acc-btn-borde" onClick={() => setAviso('Adjuntar imágenes estará disponible pronto.')}>Adjuntar imagen</button>
+          <p className="acc-nota">JPG o PNG · Máximo 10 MB</p>
+          {aviso && <p className="acc-aviso" role="status">{aviso}</p>}
+          <p className="acc-texto">Te responderemos a {email}. No incluyas contraseñas ni datos bancarios.</p>
+          {error && <p className="acc-error" role="alert">{error}</p>}
+          <button type="button" className="acc-btn" disabled={enviando} onClick={enviar}>{enviando ? 'Enviando…' : 'Enviar reporte'}</button>
+        </section>
+        <aside className="acc-panel">
+          <h2 className="cta-h2-panel">Selecciona una categoría</h2>
+          <div className="cta-radios" role="radiogroup" aria-label="Tipo de problema">
+            {TIPOS.map(([id, t]) => (
+              <button key={id} type="button" role="radio" aria-checked={tipo === id} className={cx('cta-radio', tipo === id && 'cta-radio--si')} onClick={() => { setTipo(id); setError(''); }}>
+                <span className="cta-radio__punto" aria-hidden />{t}
               </button>
             ))}
           </div>
-          <Button className="btn--block" disabled={!tipo} onClick={() => setPaso(2)}>Continuar</Button>
-        </>
-      ) : (
-        <>
-          <label className="campo-etiqueta">Cuéntanos qué pasó
-            <textarea value={texto} maxLength={1000} onChange={(e) => setTexto(e.target.value)} placeholder="Describe el problema con el mayor detalle posible" />
-            <small>{texto.length}/1000</small>
-          </label>
-          <button type="button" className="ajuste" disabled style={{ opacity: 0.5 }}>
-            <span className="ajuste__texto"><strong>Adjuntar imagen</strong><small>Próximamente</small></span>
-          </button>
-          <p className="nota-gris">Te responderemos a {email}. No incluyas contraseñas ni datos bancarios.</p>
-          <Button className="btn--block" disabled={texto.trim().length < 5 || enviando} onClick={enviar}>{enviando ? 'Enviando…' : 'Enviar reporte'}</Button>
-        </>
-      )}
+          <p>Selecciona la opción que mejor describa tu problema.</p>
+        </aside>
+      </div>
     </>
   );
 }

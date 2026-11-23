@@ -25,13 +25,19 @@ export function Cabecera({ variante = 'inicio' }: { variante?: 'inicio' | 'inter
         <Link href={`${inicio}#como-funciona`} className="web-cab__enlace">Cómo funciona</Link>
       </nav>
       <nav className="web-cab__links" aria-label="Principal">
-        <Link href={usuario ? '/favoritos' : '/login'} className="web-cab__enlace">Guardados</Link>
         {usuario ? (
-          <Link href="/perfil" className="web-cab__enlace">Hola, {usuario.nombre.split(' ')[0]}</Link>
+          <>
+            {usuario.rol !== 'negocio' && <Link href="/reservaciones" className="web-cab__enlace">Mis reservas</Link>}
+            <Link href="/favoritos" className="web-cab__enlace">Guardados</Link>
+            <Link href={usuario.rol === 'negocio' ? '/portal' : '/perfil'} className="web-cab__boton">{usuario.rol === 'negocio' ? 'Mi portal' : 'Mi cuenta'}</Link>
+          </>
         ) : (
-          <Link href="/login" className="web-cab__enlace">Iniciar sesión</Link>
+          <>
+            <Link href="/login" className="web-cab__enlace">Guardados</Link>
+            <Link href="/login" className="web-cab__enlace">Iniciar sesión</Link>
+            <Link href="/proveedores" className="web-cab__boton">Registrar mi negocio</Link>
+          </>
         )}
-        <Link href={usuario?.rol === 'negocio' ? '/portal' : '/proveedores'} className="web-cab__boton">{usuario?.rol === 'negocio' ? 'Mi portal' : 'Registrar mi negocio'}</Link>
       </nav>
     </header>
   );

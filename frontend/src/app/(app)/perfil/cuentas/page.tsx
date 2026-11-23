@@ -3,50 +3,60 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Avatar } from '@/components/perfil/Avatar';
-import { CabeceraPerfil } from '@/components/perfil/Cabecera';
-import { Button } from '@/components/ui/Button';
-import { getSesion } from '@/lib/auth';
+import { EncabezadoCuenta } from '@/components/cuenta/Cuenta';
+import { useFormulario } from '@/components/forms/useFormulario';
+import { entrar, getSesion, guardarSesion } from '@/lib/auth';
 import { cambiarACuenta, listarCuentas, recordarCuenta } from '@/lib/cuentas';
 import type { Sesion } from '@/types';
 
-export default function CuentasPage() {
+// "Web · Agregar cuenta": entra a otra cuenta sin perder la actual (se guardan en este navegador)
+export default function AgregarCuentaPage() {
   const router = useRouter();
-  const [cuentas, setCuentas] = useState<Sesion[]>([]);
-  const [actual, setActual] = useState<string | null>(null);
-
+  const [actual, setActual] = useState<Sesion | null>(null);
+  const [otras, setOtras] = useState<Sesion[]>([]);
   useEffect(() => {
-    setCuentas(listarCuentas());
-    setActual(getSesion()?.usuario.id ?? null);
+    const s = getSesion();
+    setActual(s);
+    setOtras(listarCuentas().filter((c) => c.usuario.id !== s?.usuario.id));
   }, []);
+
+  const { onSubmit, error, cargando } = useFormulario(async (datos) => {
+    const anterior = getSesion();
+    if (anterior && datos.email.trim().toLowerCase() === anterior.usuario.email.toLowerCase()) throw new Error('Esa ya es tu cuenta actual.');
+    const nueva = await entrar('/auth/login', datos);
+    recordarCuenta(anterior);
+    guardarSesion(nueva);
+    window.location.href = nueva.usuario.rol === 'negocio' ? '/portal' : '/home';
+  });
 
   function cambiar(id: string) {
     if (cambiarACuenta(id)) window.location.href = '/home';
   }
-  function otra(destino: string) {
-    // La cuenta actual queda guardada para poder volver a ella
-    recordarCuenta(getSesion());
-    router.push(destino);
-  }
 
   return (
     <>
-      <CabeceraPerfil titulo="Agregar cuenta" />
-      <h2 className="seccion-titulo">Cuentas en este dispositivo</h2>
-      {cuentas.map((s) => {
-        const esActual = s.usuario.id === actual;
-        return (
-          <button key={s.usuario.id} type="button" className="cuenta-fila" disabled={esActual} onClick={() => cambiar(s.usuario.id)}>
-            <Avatar nombre={s.usuario.nombre} url={s.usuario.avatarUrl} tamano="chico" />
-            <span><strong>{s.usuario.nombre}</strong><small>{s.usuario.email}</small></span>
-            {esActual ? <span className="etiqueta-chica">Actual</span> : <span className="etiqueta-chica">Cambiar</span>}
-          </button>
-        );
-      })}
-      <Button variant="secondary" className="btn--block" onClick={() => otra('/login')}>Iniciar sesión con otra cuenta</Button>
-      <Button className="btn--block" onClick={() => otra('/registro')}>Crear una cuenta nueva</Button>
-      <p className="nota-gris">Las cuentas agregadas se guardan solo en este navegador y se olvidan al cerrar sesión.</p>
-      <Link href="/perfil" className="enlace-boton texto-centrado">Volver al perfil</Link>
+      <EncabezadoCuenta titulo="Agregar cuenta" sub="Accede a otra cuenta sin mezclar tu información." />
+      <section className="acc-tarjeta">
+        <h2>Cuenta actual · {actual?.usuario.nombre}</h2>
+        <p className="acc-texto">{actual?.usuario.email}</p>
+        <form className="acc-form" onSubmit={onSubmit}>
+          <label className="acc-campo">Correo electrónico<input name="email" type="email" required autoComplete="off" placeholder="Ingresa el correo de la otra cuenta" /></label>
+          <label className="acc-campo">Contraseña<input name="password" type="password" required autoComplete="off" placeholder="Ingresa tu contraseña" /></label>
+          <Link href="/recuperar" className="acc-enlace acc-enlace--fuerte">¿Olvidaste tu contraseña?</Link>
+          {error && <p className="acc-error" role="alert">{error}</p>}
+          <button type="submit" className="acc-btn" disabled={cargando}>{cargando ? 'Entrando…' : 'Agregar cuenta'}</button>
+        </form>
+        <p className="acc-texto">Las reservas, favoritos y datos de cada cuenta se mantienen separados. Las cuentas agregadas se guardan solo en este navegador y se olvidan al cerrar sesión.</p>
+        {otras.length > 0 && (
+          <div className="cta-cuentas">
+            <h3 className="cta-h3">Otras cuentas en este navegador</h3>
+            {otras.map((s) => (
+              <button key={s.usuario.id} type="button" className="acc-btn-borde" onClick={() => cambiar(s.usuario.id)}>Cambiar a {s.usuario.nombre} · {s.usuario.email}</button>
+            ))}
+          </div>
+        )}
+        <button type="button" className="acc-btn-borde" onClick={() => { recordarCuenta(getSesion()); router.push('/registro'); }}>Crear una cuenta nueva</button>
+      </section>
     </>
   );
 }

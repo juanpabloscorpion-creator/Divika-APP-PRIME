@@ -3,16 +3,12 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { CodigoInput } from '@/components/forms/CodigoInput';
-import { CabeceraPerfil } from '@/components/perfil/Cabecera';
-import { Button } from '@/components/ui/Button';
-import { IconCheck } from '@/components/ui/icons';
+import { EncabezadoCuenta } from '@/components/cuenta/Cuenta';
 import { api } from '@/lib/api';
 import { CodigoPendiente, borrarPendiente, guardarPendiente, leerPendiente } from '@/lib/codigo';
 import { formatoTelefono } from '@/lib/formato';
 import { useCuenta } from '@/lib/useCuenta';
 import type { Cuenta } from '@/types';
-
-const reloj = (seg: number) => `${String(Math.floor(seg / 60)).padStart(2, '0')}:${String(seg % 60).padStart(2, '0')}`;
 
 export default function CodigoTelefonoPage() {
   const router = useRouter();
@@ -25,7 +21,7 @@ export default function CodigoTelefonoPage() {
 
   useEffect(() => {
     const p = leerPendiente();
-    if (!p) return router.replace('/perfil/editar');
+    if (!p) return router.replace('/perfil');
     setPendiente(p);
   }, [router]);
 
@@ -46,7 +42,7 @@ export default function CodigoTelefonoPage() {
     try {
       setCuenta(await api<Cuenta>('/cuenta/telefono/verificar', { method: 'POST', body: { telefono: pendiente.destino, codigo } }));
       borrarPendiente();
-      router.push('/perfil/editar');
+      router.push('/perfil');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Algo salió mal');
       setCodigo('');
@@ -71,23 +67,15 @@ export default function CodigoTelefonoPage() {
 
   return (
     <>
-      <CabeceraPerfil titulo="Verifica tu teléfono" atras="/perfil/editar" />
-      <p className="subtitulo">
-        Ingresa el código que enviamos a <strong>{formatoTelefono(pendiente.destino)}</strong>
-      </p>
-      <CodigoInput value={codigo} onChange={(v) => { setCodigo(v); setError(''); }} error={!!error} />
-      <Button className="btn--block" onClick={confirmar} disabled={codigo.length < 4 || cargando}>
-        <IconCheck /> {cargando ? 'Verificando…' : 'Confirmar código'}
-      </Button>
-      {error && <p className="form__error texto-centrado" role="alert">{error}</p>}
-      {segundos > 0 ? (
-        <p className="texto-aparte">Podrás solicitar otro en <span className="rojo">{reloj(segundos)}</span></p>
-      ) : (
-        <p className="texto-aparte">
-          ¿No recibiste el código?{' '}
-          <button type="button" className="enlace-boton enlace-boton--rojo" onClick={reenviar}>Reenviar código</button>
-        </p>
-      )}
+      <EncabezadoCuenta titulo="Verifica tu teléfono" sub={<>Ingresa el código que enviamos a <strong>{formatoTelefono(pendiente.destino)}</strong>.</>} />
+      <section className="acc-tarjeta acc-codigo">
+        <h3>Ingresa el código de 4 dígitos</h3>
+        <CodigoInput cuadrado value={codigo} onChange={(v) => { setCodigo(v); setError(''); }} error={!!error} />
+        <p className="acc-nota">{segundos > 0 ? <>Puedes solicitar un código nuevo en {segundos} segundos.</> : 'Ya puedes pedir un código nuevo.'}</p>
+        <button type="button" className="acc-btn" onClick={confirmar} disabled={codigo.length < 4 || cargando}>{cargando ? 'Verificando…' : 'Confirmar código'}</button>
+        <p className="acc-otros">¿No recibiste el código?{' '}<button type="button" className="acc-enlace-boton" onClick={reenviar} disabled={segundos > 0}>Reenviar código</button>{' · '}<button type="button" className="acc-enlace-boton" onClick={() => router.push('/perfil')}>Cancelar</button></p>
+        {error && <p className="acc-error" role="alert">{error}</p>}
+      </section>
     </>
   );
 }
