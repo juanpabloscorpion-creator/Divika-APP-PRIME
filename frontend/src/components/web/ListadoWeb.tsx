@@ -10,6 +10,7 @@ import { useCategorias } from '@/lib/categorias';
 import { cx } from '@/lib/cx';
 import { abiertoAhora } from '@/lib/horario';
 import { useFavoritos } from '@/lib/useFavoritos';
+import { textosCategoria } from '@/lib/textosCategoria';
 import type { Negocio } from '@/types';
 
 const POR_PAGINA = 6;
@@ -88,6 +89,12 @@ export function ListadoWeb({ slug, consulta = '', ciudad = '' }: { slug?: string
   const visibles = filtrados.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
   const hayFiltros = subs.length > 0 || califMin > 0 || abierto || domicilio || maxKm !== SIN_LIMITE;
   const restablecer = () => { setSubs([]); setCalifMin(0); setAbierto(false); setDomicilio(false); setMaxKm(SIN_LIMITE); };
+  // Ciudad que más se repite en los resultados, para el encabezado "Servicios en …"
+  const ciudadComun = useMemo(() => {
+    const c = new Map<string, number>();
+    for (const n of datos) if (n.ciudad) c.set(n.ciudad, (c.get(n.ciudad) ?? 0) + 1);
+    return [...c.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
+  }, [datos]);
   const titulo = (categoria?.nombre ?? (consulta ? `Resultados para “${consulta}”` : 'Todos los servicios')) + (ciudad.trim() ? ` en ${ciudad.trim()}` : '');
 
   return (
@@ -98,7 +105,7 @@ export function ListadoWeb({ slug, consulta = '', ciudad = '' }: { slug?: string
         <span className="wa-titulo__icono">{(slug && ICONOS_CATEGORIA[slug]) || ICONO_GENERICO}</span>
         <div>
           <h1>{titulo}</h1>
-          <p>{categoria ? `Negocios de ${categoria.nombre.toLowerCase()} cerca de ti, con horarios y reservas en línea.` : 'Encuentra negocios locales y reserva en línea.'}</p>
+          <p>{textosCategoria(slug).subtitulo}</p>
         </div>
       </header>
 
@@ -154,7 +161,7 @@ export function ListadoWeb({ slug, consulta = '', ciudad = '' }: { slug?: string
 
         <section className="wa-resultados" aria-live="polite">
           <div className="wa-resultados__cab">
-            <h2>{ubicacion ? 'Cerca de ti' : 'Resultados'} <span className="wa-pastilla">{filtrados.length} establecimiento{filtrados.length === 1 ? '' : 's'}</span></h2>
+            <h2>{ubicacion ? 'Cerca de ti' : ciudad.trim() || ciudadComun ? `Servicios en ${ciudad.trim() || ciudadComun}` : 'Resultados'} <span className="wa-pastilla">{filtrados.length} establecimiento{filtrados.length === 1 ? '' : 's'}</span></h2>
             <label className="wa-orden">Ordenar por
               <select value={orden} onChange={(e) => setOrden(e.target.value as typeof orden)}>
                 <option value="recomendados">Recomendados</option>

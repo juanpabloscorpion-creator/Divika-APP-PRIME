@@ -13,6 +13,7 @@ import { formatoTelefono, numeroWhatsapp } from '@/lib/formato';
 import { abiertoAhora, resumenHorario } from '@/lib/horario';
 import { NOMBRE_PAGO, pesos } from '@/lib/reservas';
 import { useFavoritos } from '@/lib/useFavoritos';
+import { textosCategoria } from '@/lib/textosCategoria';
 import type { NegocioDetalle, Resena, Servicio } from '@/types';
 
 const ETIQUETA_MODALIDAD = { local: '', domicilio: 'A domicilio', ambos: 'En el negocio o a domicilio' } as const;
@@ -45,9 +46,10 @@ export function NegocioWeb({ id }: { id: string }) {
   const horario = resumenHorario(negocio.horariosJson);
   const abierto = abiertoAhora(negocio.horariosJson);
   const esFav = favs.esFavorito(negocio.id);
-  const mapa = negocio.latitud != null && negocio.longitud != null
-    ? `https://maps.google.com/maps?q=${negocio.latitud},${negocio.longitud}&z=15&output=embed`
-    : `https://maps.google.com/maps?q=${encodeURIComponent(negocio.direccion)}&z=15&output=embed`;
+  const t = textosCategoria(negocio.categoria);
+  const comoLlegar = negocio.latitud != null && negocio.longitud != null
+    ? `https://www.google.com/maps/dir/?api=1&destination=${negocio.latitud},${negocio.longitud}`
+    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([negocio.direccion, negocio.ciudad].filter(Boolean).join(', '))}`;
   const contar = (tipo: 'whatsapp' | 'llamada') => { api(`/negocios/${id}/clic-${tipo}`, { method: 'POST' }).catch(() => {}); };
   const lugar = [negocio.colonia, negocio.ciudad].filter(Boolean).join(' · ') || negocio.direccion;
 
@@ -100,7 +102,7 @@ export function NegocioWeb({ id }: { id: string }) {
 
       <nav className="wa-tabs" aria-label="Secciones">
         <a href="#info">Información</a>
-        {servicios.length > 0 && <a href="#servicios">Servicios</a>}
+        {servicios.length > 0 && <a href="#servicios">{t.servicios}</a>}
         <a href="#ubicacion">Ubicación y horarios</a>
         <a href="#resenas">Reseñas</a>
       </nav>
@@ -115,7 +117,7 @@ export function NegocioWeb({ id }: { id: string }) {
 
           {servicios.length > 0 && (
             <section className="wa-bloque" id="servicios">
-              <div className="wa-bloque__cab"><h2>Servicios</h2><small>Precios en MXN</small></div>
+              <div className="wa-bloque__cab"><h2>{t.servicios}</h2><small>Precios en MXN</small></div>
               {servicios.map((s) => (
                 <div key={s.id} className="wa-servicio">
                   {s.fotoUrl && <img src={s.fotoUrl} alt="" />}
@@ -133,7 +135,10 @@ export function NegocioWeb({ id }: { id: string }) {
           <section className="wa-bloque" id="ubicacion">
             <h2>Ubicación y horarios</h2>
             <div className="wa-ubic">
-              <iframe className="wa-ubic__mapa" title={`Mapa de ${negocio.nombre}`} src={mapa} loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
+              <div className="wa-ubic__mapa">
+                <MapaIlustrado />
+                <a className="wa-ubic__llegar" href={comoLlegar} target="_blank" rel="noreferrer">Cómo llegar <span aria-hidden>↗</span></a>
+              </div>
               <div>
                 <p className="wa-ubic__titulo"><IconClock /> Horario de atención</p>
                 {horario.length === 0 ? <p className="wa-nota">El negocio aún no capturó su horario.</p> : horario.map((l) => <p key={l} className="wa-ubic__linea">{l}</p>)}
@@ -183,5 +188,27 @@ export function NegocioWeb({ id }: { id: string }) {
       </div>
       {aviso && <div className="toast" role="status">{aviso}</div>}
     </div>
+  );
+}
+
+// Mapa ilustrado (sin cargar Google Maps): calles, un parque y el pin del negocio
+function MapaIlustrado() {
+  return (
+    <svg viewBox="0 0 320 200" role="img" aria-label="Mapa ilustrativo de la ubicación" preserveAspectRatio="xMidYMid slice">
+      <rect width="320" height="200" fill="#eceaf6" />
+      <rect x="196" y="18" width="92" height="62" rx="10" fill="#d9ecd9" />
+      <rect x="22" y="126" width="70" height="52" rx="10" fill="#d9ecd9" />
+      <g stroke="#fff" strokeLinecap="round" fill="none">
+        <path d="M-10 100 H330" strokeWidth="16" />
+        <path d="M150 -10 V210" strokeWidth="14" />
+        <path d="M-10 40 L120 60 L330 150" strokeWidth="9" />
+        <path d="M60 -10 V210" strokeWidth="7" />
+        <path d="M250 100 V210" strokeWidth="7" />
+      </g>
+      <path d="M150 -10 V210" fill="none" stroke="#d7d3ee" strokeWidth="2" strokeDasharray="8 8" />
+      <circle cx="150" cy="108" r="22" fill="#4b3f8f" opacity=".14" />
+      <path d="M150 112 c-12-14-18-22-18-30 a18 18 0 0 1 36 0 c0 8-6 16-18 30z" fill="#4b3f8f" />
+      <circle cx="150" cy="82" r="6.5" fill="#fff" />
+    </svg>
   );
 }

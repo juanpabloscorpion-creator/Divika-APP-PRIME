@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { createContext, ReactNode, useContext, useState } from 'react';
-import { ICONOS_CATEGORIA, ICONO_GENERICO } from '../home/categoriaIconos';
 import { Cabecera } from './Cabecera';
 import { BannerApp, PieSimple } from './Pie';
 import { LateralCuenta, esRutaCuenta } from '../cuenta/Cuenta';
@@ -20,7 +19,7 @@ function BarraCategorias({ activa }: { activa: string | null }) {
     <nav className="wa-cats" aria-label="Categorías">
       {categorias.map((c) => (
         <Link key={c.slug} href={`/categoria/${c.slug}`} className={cx('wa-cats__item', activa === c.slug && 'wa-cats__item--activa')} aria-current={activa === c.slug ? 'page' : undefined}>
-          {ICONOS_CATEGORIA[c.slug] ?? ICONO_GENERICO}<span>{c.nombre}</span>
+          <span>{c.nombre}</span>
         </Link>
       ))}
     </nav>
@@ -33,7 +32,7 @@ export function MarcoWeb({ children }: { children: ReactNode }) {
   const [activaPantalla, setActiva] = useState<string | null>(null);
   const inicio = ruta === '/home';
   const categoria = ruta.startsWith('/categoria/') ? ruta.split('/')[2] : null;
-  const detalle = /^\/negocio\/[^/]+$/.test(ruta);
+  const detalle = /^\/negocio\/[^/]+(\/reservar)?$/.test(ruta);
   const conBarra = !inicio && (!!categoria || ruta.startsWith('/negocio/'));
   // Las pantallas con diseño web usan todo el ancho; las demás (perfil, favoritos...) van en una columna centrada
   const ancho = inicio || !!categoria || detalle;

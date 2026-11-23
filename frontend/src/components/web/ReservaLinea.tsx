@@ -6,6 +6,7 @@ import { IconCalendar, IconCheck, IconShield } from '../ui/icons';
 import { api } from '@/lib/api';
 import { cx } from '@/lib/cx';
 import { NOMBRE_PAGO, fechaLarga, iso, pesos } from '@/lib/reservas';
+import { textosCategoria } from '@/lib/textosCategoria';
 import type { Cita, NegocioDetalle, OfertaDia, Servicio } from '@/types';
 
 const CLAVES = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
@@ -18,7 +19,6 @@ export function ReservaLinea({ negocio, servicios }: { negocio: NegocioDetalle; 
   const [direccion, setDireccion] = useState('');
   const [personas, setPersonas] = useState(1);
   const [metodo, setMetodo] = useState('');
-  const [mes, setMes] = useState(() => { const h = new Date(); return new Date(h.getFullYear(), h.getMonth(), 1); });
   const [fecha, setFecha] = useState('');
   const [hora, setHora] = useState('');
   const [oferta, setOferta] = useState<OfertaDia | null>(null);
@@ -39,17 +39,9 @@ export function ReservaLinea({ negocio, servicios }: { negocio: NegocioDetalle; 
     api<OfertaDia>(`/negocios/${negocio.id}/disponibilidad?fecha=${fecha}${servicioId ? `&servicioId=${servicioId}` : ''}`).then(setOferta).catch(() => {});
   }, [negocio.id, fecha, servicioId]);
 
-  const hoy = iso(new Date());
-  const celdas = useMemo(() => {
-    const primero = new Date(mes.getFullYear(), mes.getMonth(), 1);
-    const total = new Date(mes.getFullYear(), mes.getMonth() + 1, 0).getDate();
-    return [...Array(primero.getDay()).fill(null), ...Array.from({ length: total }, (_, i) => new Date(mes.getFullYear(), mes.getMonth(), i + 1))] as (Date | null)[];
-  }, [mes]);
-  // Sin horario capturado el negocio ofrece todos los días; el servidor confirma cada fecha
-  const abreEseDia = (d: Date) => { const h = negocio.horariosJson?.[CLAVES[d.getDay()]]; return !negocio.horariosJson || (!!h && !h.cerrado); };
-  const mesActual = new Date().getFullYear() * 12 + new Date().getMonth();
   const faltan = (servicios.length > 0 && !servicio) || !fecha || !hora || (aDomicilio && !direccion.trim());
   const pagos = negocio.metodosPago ?? [];
+  const t = textosCategoria(negocio.categoria);
 
   async function enviar() {
     setError(''); setEnviando(true);
@@ -79,7 +71,7 @@ export function ReservaLinea({ negocio, servicios }: { negocio: NegocioDetalle; 
     <aside className="wa-reserva" id="reservar" aria-label="Reservar">
       <header className="wa-reserva__cab">
         <span className="wa-reserva__icono"><IconCalendar /></span>
-        <div><h2>Reserva tu cita</h2><p>Elige cuándo ir. El negocio revisará tu solicitud antes de confirmar.</p></div>
+        <div><h2>{t.reserva}</h2><p>{t.reservaTexto}</p></div>
       </header>
 
       {servicios.length > 0 && (
@@ -110,22 +102,7 @@ export function ReservaLinea({ negocio, servicios }: { negocio: NegocioDetalle; 
       </label>
 
       <div className="wa-campo">Elige un día disponible
-        <div className="wa-mes">
-          <div className="wa-mes__cab">
-            <button type="button" aria-label="Mes anterior" disabled={mes.getFullYear() * 12 + mes.getMonth() <= mesActual} onClick={() => setMes(new Date(mes.getFullYear(), mes.getMonth() - 1, 1))}>‹</button>
-            <strong>{mes.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })}</strong>
-            <button type="button" aria-label="Mes siguiente" onClick={() => setMes(new Date(mes.getFullYear(), mes.getMonth() + 1, 1))}>›</button>
-          </div>
-          <div className="wa-mes__grid">
-            {SEMANA.map((d) => <small key={d}>{d}</small>)}
-            {celdas.map((d, i) => {
-              if (!d) return <span key={`v${i}`} />;
-              const f = iso(d);
-              const libre = f >= hoy && abreEseDia(d);
-              return <button key={f} type="button" disabled={!libre} aria-pressed={fecha === f} className={cx('wa-dia', fecha === f && 'wa-dia--sel')} onClick={() => setFecha(f)}>{d.getDate()}</button>;
-            })}
-          </div>
-        </div>
+        <CalendarioMes negocio={negocio} fecha={fecha} onFecha={setFecha} />
       </div>
 
       {fecha && (
@@ -161,9 +138,42 @@ export function ReservaLinea({ negocio, servicios }: { negocio: NegocioDetalle; 
       </div>
 
       {error && <p className="form__error">{error}</p>}
-      <button type="button" className="wa-btn-primario" disabled={faltan || enviando} onClick={enviar}>{enviando ? 'Enviando…' : 'Solicitar cita'}</button>
+      <button type="button" className="wa-btn-primario" disabled={faltan || enviando} onClick={enviar}>{enviando ? 'Enviando…' : t.boton}</button>
+      <Link href={`/negocio/${negocio.id}/reservar`} className="wa-enlace wa-enlace--centro">Prefiero reservar paso a paso</Link>
       <p className="wa-nota wa-nota--centro">Aún no es una reserva confirmada. Divika no cobra: el pago se acuerda con el negocio.</p>
-      <p className="wa-nota"><IconShield /> Puedes cancelar o pedir cambios desde Reservaciones.</p>
+      <div className="wa-cambios"><IconShield /><div><strong>Cambios y cancelaciones</strong><p>Puedes cancelar desde Mis reservas. Para cambiar fecha u hora, escríbele al negocio.</p></div></div>
     </aside>
+  );
+}
+
+// Calendario mensual con los días en que abre el negocio (se usa en la tarjeta y en el asistente)
+export function CalendarioMes({ negocio, fecha, onFecha }: { negocio: NegocioDetalle; fecha: string; onFecha: (f: string) => void }) {
+  const [mes, setMes] = useState(() => { const h = fecha ? new Date(`${fecha}T00:00`) : new Date(); return new Date(h.getFullYear(), h.getMonth(), 1); });
+  const hoy = iso(new Date());
+  const celdas = useMemo(() => {
+    const primero = new Date(mes.getFullYear(), mes.getMonth(), 1);
+    const total = new Date(mes.getFullYear(), mes.getMonth() + 1, 0).getDate();
+    return [...Array(primero.getDay()).fill(null), ...Array.from({ length: total }, (_, i) => new Date(mes.getFullYear(), mes.getMonth(), i + 1))] as (Date | null)[];
+  }, [mes]);
+  // Sin horario capturado el negocio ofrece todos los días; el servidor confirma cada fecha
+  const abreEseDia = (d: Date) => { const h = negocio.horariosJson?.[CLAVES[d.getDay()]]; return !negocio.horariosJson || (!!h && !h.cerrado); };
+  const mesActual = new Date().getFullYear() * 12 + new Date().getMonth();
+  return (
+    <div className="wa-mes">
+      <div className="wa-mes__cab">
+        <button type="button" aria-label="Mes anterior" disabled={mes.getFullYear() * 12 + mes.getMonth() <= mesActual} onClick={() => setMes(new Date(mes.getFullYear(), mes.getMonth() - 1, 1))}>‹</button>
+        <strong>{mes.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })}</strong>
+        <button type="button" aria-label="Mes siguiente" onClick={() => setMes(new Date(mes.getFullYear(), mes.getMonth() + 1, 1))}>›</button>
+      </div>
+      <div className="wa-mes__grid">
+        {SEMANA.map((d) => <small key={d}>{d}</small>)}
+        {celdas.map((d, i) => {
+          if (!d) return <span key={`v${i}`} />;
+          const f = iso(d);
+          const libre = f >= hoy && abreEseDia(d);
+          return <button key={f} type="button" disabled={!libre} aria-pressed={fecha === f} className={cx('wa-dia', fecha === f && 'wa-dia--sel')} onClick={() => onFecha(f)}>{d.getDate()}</button>;
+        })}
+      </div>
+    </div>
   );
 }
