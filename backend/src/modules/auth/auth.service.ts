@@ -9,7 +9,7 @@ import { CategoriasService, aSlug } from '../../base/categorias.service';
 import { datosPublicos, normalizarTelefono, rolApi, telefonoNegocio, UsuariosService } from '../../base/usuarios';
 import { CanalOtp, DetalleNegocio, DireccionNegocio, Negocio, NegocioCategoria, OtpCode, Usuario } from '../../entidades';
 import { CENTRO } from '../negocios/negocios.seed';
-import { AppleLoginDto, EnviarCodigoDto, GoogleLoginDto, LoginDto, RegistroClienteDto, RegistroProveedorDto, VerificarCodigoDto } from './dto';
+import { AppleLoginDto, EnviarCodigoDto, GoogleLoginDto, LoginDto, RecuperarDto, RegistroClienteDto, RegistroProveedorDto, RestablecerDto, VerificarCodigoDto } from './dto';
 
 const INTENTOS_MAX = 5;
 const ESPERA_REENVIO_SEG = 60;
@@ -138,7 +138,7 @@ export class AuthService {
   }
 
   // Genera el código, guarda solo su hash y lo "envía". Un código por minuto por destino.
-  async emitirCodigo(o: { userId: string; destino: string; canal: CanalOtp; proposito: 'login' | 'phone_verify' }) {
+  async emitirCodigo(o: { userId: string; destino: string; canal: CanalOtp; proposito: 'login' | 'phone_verify' | 'password_reset' }) {
     const ultimo = await this.otps.findOne({ where: { destination: o.destino }, order: { createdAt: 'DESC' } });
     if (ultimo) {
       const pasaron = (Date.now() - ultimo.createdAt.getTime()) / 1000;
@@ -173,6 +173,31 @@ export class AuthService {
 
   async hayCodigoPendiente(destino: string, proposito: string, userId: string) {
     return this.otps.existsBy({ destination: destino, purpose: proposito, userId, consumedAt: IsNull() });
+  }
+
+  // ==========================================
+  // RECUPERAR CONTRASEÑA — código al correo (otp_codes, purpose 'password_reset')
+  // ==========================================
+
+  // Responde igual exista o no la cuenta
+  async recuperar(dto: RecuperarDto) {
+    const email = dto.email.trim().toLowerCase();
+    const u = await this.buscarPorEmail(email);
+    if (u?.estatus === 'activo') await this.emitirCodigo({ userId: u.id, destino: email, canal: 'correo', proposito: 'password_reset' });
+    else console.log(`[CÓDIGO SIMULADO] No hay una cuenta con ${email}; no se envió nada`);
+    return { enviado: true, segundosEspera: 60 };
+  }
+
+  // Cambia la contraseña con el código y deja la sesión iniciada
+  async restablecer(dto: RestablecerDto) {
+    const email = dto.email.trim().toLowerCase();
+    const u = await this.buscarPorEmail(email);
+    if (!u || u.estatus !== 'activo') throw new BadRequestException('Código incorrecto');
+    await this.comprobarCodigo(email, 'password_reset', dto.codigo);
+    u.contrasena = await bcrypt.hash(dto.password, 10);
+    await this.repo.save(u);
+    await this.usuarios.auditar(u.id, 'restablecer_contrasena', 'usuarios', u.id);
+    return this.respuesta(u);
   }
 
   // ==========================================

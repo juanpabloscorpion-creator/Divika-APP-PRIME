@@ -34,7 +34,6 @@ function RegistroProveedorWeb() {
   const [paso, setPaso] = useState(0);
   const [negocio, setNegocio] = useState<Negocio | null>(null);
   const [listo, setListo] = useState(false);
-  const [nombreAlta, setNombreAlta] = useState('');
 
   // Si ya hay un alta empezada con sesión, retoma desde el paso 2
   useEffect(() => {
@@ -93,7 +92,7 @@ function RegistroProveedorWeb() {
             {paso === 0 && (
               <PasoCuenta
                 categorias={categorias}
-                onCreada={(n) => { setNegocio(n); setNombreAlta(n.nombre); setPaso(1); }}
+                onCreada={() => router.push('/proveedores/verificacion')}
               />
             )}
 
@@ -113,7 +112,7 @@ function RegistroProveedorWeb() {
                     <button type="button" className="p-btn" onClick={() => setPaso(2)}>Continuar</button>
                   </div>
                 </div>
-                <Lateral nombre={negocio.nombre || nombreAlta} />
+                <Lateral nombre={negocio.nombre} />
               </div>
             )}
 

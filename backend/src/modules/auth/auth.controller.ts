@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { AppleLoginDto, EnviarCodigoDto, GoogleLoginDto, LoginDto, RegistroClienteDto, RegistroProveedorDto, VerificarCodigoDto } from './dto';
+import { AppleLoginDto, EnviarCodigoDto, GoogleLoginDto, LoginDto, RecuperarDto, RegistroClienteDto, RegistroProveedorDto, RestablecerDto, VerificarCodigoDto } from './dto';
 import { JwtAuthGuard, ReqUsuario } from '../../common/jwt-auth.guard';
 
 @Controller('auth')
@@ -31,6 +31,17 @@ export class AuthController {
   @Post('codigo/verificar')
   verificarCodigo(@Body() dto: VerificarCodigoDto) {
     return this.service.verificarCodigo(dto);
+  }
+
+  // Olvidé mi contraseña: pide un código al correo y luego lo confirma con la contraseña nueva
+  @Post('recuperar')
+  recuperar(@Body() dto: RecuperarDto) {
+    return this.service.recuperar(dto);
+  }
+
+  @Post('recuperar/confirmar')
+  restablecer(@Body() dto: RestablecerDto) {
+    return this.service.restablecer(dto);
   }
 
   @UseGuards(JwtAuthGuard)

@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
 import { ImagenOpcional } from './ImagenOpcional';
 
 function Tiendas() {
@@ -28,60 +27,20 @@ export function BannerApp() {
   );
 }
 
-// Pie sencillo (diseño "Inicio mejorado"): se usa en el inicio y en las pantallas del cliente
-export function PieSimple() {
+// Pie sencillo (diseño "Inicio mejorado"). corto = una sola línea (pantallas de acceso)
+export function PieSimple({ corto = false, legal = 'Negocios y datos de ejemplo. Confirma precios y disponibilidad con cada establecimiento.' }: { corto?: boolean; legal?: string }) {
   return (
-    <footer className="wa-pie">
+    <footer className={`wa-pie${corto ? ' wa-pie--corto' : ''}`}>
       <div className="wa-pie__fila">
-        <span className="wa-pie__marca"><strong>DIVIKA</strong> Tu comunidad, más cerca.</span>
+        <span className="wa-pie__marca"><strong>DIVIKA</strong>{corto ? '· ' : ''}Tu comunidad, más cerca.</span>
         <nav className="wa-pie__links" aria-label="Pie de página">
           <Link href="/perfil/soporte">Ayuda</Link>
           <span>Privacidad</span>
           <span>Términos</span>
-          <Link href="/perfil/soporte">Contacto</Link>
+          {corto ? <span>© 2026 DIVIKA</span> : <Link href="/perfil/soporte">Contacto</Link>}
         </nav>
       </div>
-      <p className="wa-pie__legal">© 2026 DIVIKA · Negocios y datos de ejemplo. Confirma precios y disponibilidad con cada establecimiento.</p>
+      {!corto && <p className="wa-pie__legal">© 2026 DIVIKA · {legal}</p>}
     </footer>
-  );
-}
-
-// Banner + pie completo (con suscripción y enlaces para negocios): landing de proveedores
-export function Pie() {
-  const [aviso, setAviso] = useState('');
-  return (
-    <>
-      <BannerApp />
-      <footer className="web-pie">
-        <div className="web-pie__col web-pie__marca">
-          <img src="/logo.png" alt="Divika" />
-          <Tiendas />
-          <p>Divika · Encuentra, conecta y descubre</p>
-        </div>
-        <div className="web-pie__col">
-          <h3>Recibe ofertas exclusivas</h3>
-          <form
-            className="web-pie__suscribir"
-            onSubmit={(e) => { e.preventDefault(); setAviso('La suscripción estará disponible pronto.'); }}
-          >
-            <input type="email" required placeholder="tucorreo@gmail.com" aria-label="Correo" />
-            <button type="submit">Suscribirme</button>
-          </form>
-          {aviso && <p className="web-pie__aviso" role="status">{aviso}</p>}
-        </div>
-        <div className="web-pie__col">
-          <h3>Legal</h3>
-          <ul><li>Términos y condiciones</li><li>Aviso de privacidad</li></ul>
-        </div>
-        <div className="web-pie__col">
-          <h3>Divika</h3>
-          <ul>
-            <li><Link href="/proveedores">Anuncia tu negocio</Link></li>
-            <li><Link href="/login/proveedores">Acceso para proveedores</Link></li>
-          </ul>
-        </div>
-      </footer>
-      <div className="web-pie__legal">© 2026 Divika. Todos los derechos reservados.</div>
-    </>
   );
 }

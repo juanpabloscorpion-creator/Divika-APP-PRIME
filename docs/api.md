@@ -10,6 +10,8 @@ Base: `http://localhost:3001` (en la nube, la URL de Render). Rutas con 🔒 req
 | POST | `/auth/login` | Correo y contraseña. Devuelve `{ token, usuario }` |
 | POST | `/auth/codigo/enviar` | `{ canal: 'sms' \| 'email', destino }`. Genera un código de 4 dígitos. Responde igual exista o no la cuenta. Un envío por minuto (429 si se repite antes) |
 | POST | `/auth/codigo/verificar` | `{ canal, destino, codigo }`. Si es correcto devuelve `{ token, usuario }` (y marca el teléfono como verificado en `sms`). Vigencia 10 min, máximo 5 intentos |
+| POST | `/auth/recuperar` | `{ email }`. Manda un código de 4 dígitos al correo (simulado: sale en la consola). Responde igual exista o no la cuenta |
+| POST | `/auth/recuperar/confirmar` | `{ email, codigo, password }` → cambia la contraseña y devuelve `{ token, usuario }` |
 | GET 🔒 | `/auth/me` | Perfil del usuario |
 | POST | `/auth/google`, `/auth/apple` | **Desactivados** (501) hasta validar el token con la librería oficial de cada proveedor |
 
@@ -159,6 +161,7 @@ Esta sección es para quien implemente el backend en otra tecnología (por ejemp
 - `imagenUrl` es una URL completa.
 
 ## Reglas de negocio que el frontend da por hechas
+- **Contraseñas:** 8 caracteres o más, al menos una mayúscula y un número (registro de cliente y proveedor, cambio y recuperación).
 - **Código de acceso:** 4 dígitos, vigencia de 10 minutos, 5 intentos, un envío por minuto (429 si se repite antes). `enviar` responde igual exista o no la cuenta, para no revelar quién está registrado.
 - **Teléfono de cliente:** obligatorio, 10 dígitos y único entre cuentas activas.
 - **Categorías:** el frontend no las tiene fijas; las pide a `/categorias`. Los `slug` deben coincidir con los de los iconos (`frontend/src/components/home/categoriaIconos.tsx`).

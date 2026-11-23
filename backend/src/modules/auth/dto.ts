@@ -1,6 +1,10 @@
 import { Type } from 'class-transformer';
-import { Equals, IsBoolean, IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, MinLength, ValidateNested } from 'class-validator';
+import { Equals, IsBoolean, IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, ValidateNested } from 'class-validator';
 import { CATEGORIAS } from '../negocios/categorias';
+
+// 8 caracteres o más, al menos una mayúscula y un número (lo mismo que pide el front)
+export const CONTRASENA_SEGURA = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
+export const MENSAJE_CONTRASENA = 'La contraseña debe tener 8 caracteres o más, una mayúscula y un número';
 
 export class LoginDto {
   @IsEmail({}, { message: 'Correo no válido' })
@@ -24,7 +28,7 @@ export class RegistroClienteDto {
   telefono: string;
 
   @IsString()
-  @MinLength(8, { message: 'La contraseña debe tener mínimo 8 caracteres' })
+  @Matches(CONTRASENA_SEGURA, { message: MENSAJE_CONTRASENA })
   password: string;
 }
 
@@ -71,7 +75,7 @@ export class RegistroProveedorDto {
   email: string;
 
   @IsString()
-  @MinLength(8, { message: 'La contraseña debe tener mínimo 8 caracteres' })
+  @Matches(CONTRASENA_SEGURA, { message: MENSAJE_CONTRASENA })
   password: string;
 
   @ValidateNested()
@@ -120,4 +124,19 @@ export class EnviarCodigoDto {
 export class VerificarCodigoDto extends EnviarCodigoDto {
   @Matches(/^\d{4}$/, { message: 'El código tiene 4 dígitos' })
   codigo: string;
+}
+
+// Recuperar contraseña: 1) pedir código al correo  2) confirmarlo con la contraseña nueva
+export class RecuperarDto {
+  @IsEmail({}, { message: 'Correo no válido' })
+  email: string;
+}
+
+export class RestablecerDto extends RecuperarDto {
+  @Matches(/^\d{4}$/, { message: 'El código son 4 dígitos' })
+  codigo: string;
+
+  @IsString()
+  @Matches(CONTRASENA_SEGURA, { message: MENSAJE_CONTRASENA })
+  password: string;
 }

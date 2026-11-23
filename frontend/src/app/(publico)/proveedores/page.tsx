@@ -1,94 +1,105 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
-import { useFormulario } from '@/components/forms/useFormulario';
-import { Cabecera } from '@/components/web/Cabecera';
-import { Pie } from '@/components/web/Pie';
-import { api } from '@/lib/api';
+import { useEffect, useState } from 'react';
+import { ImagenOpcional } from '@/components/web/ImagenOpcional';
+import { BannerApp, PieSimple } from '@/components/web/Pie';
+import { getUsuario } from '@/lib/auth';
+import type { Usuario } from '@/types';
 
 const MOTIVOS = [
-  { icono: '📍', titulo: 'Más clientes cerca de ti', texto: 'Aparece en las búsquedas de tu colonia o alcaldía cuando la gente necesita tu negocio.' },
-  { icono: '💬', titulo: 'Trato directo y sin comisión', texto: 'Tus clientes te contactan directamente, sin intermediarios.' },
-  { icono: '⭐', titulo: 'Construye tu reputación', texto: 'Sube fotos de tus trabajos y recibe opiniones de tus clientes para generar más confianza.' },
-];
+  ['01', 'Más clientes cerca de ti', 'Apareces en las búsquedas de tu colonia y ciudad cuando la gente necesita tu servicio.'],
+  ['02', 'Trato directo y sin comisión', 'Tus clientes te contactan directamente, sin intermediarios. Acuerda con ellos el servicio y el pago.'],
+  ['03', 'Construye tu reputación', 'Sube fotos de tus trabajos y recibe opiniones de tus clientes para generar más confianza.'],
+] as const;
 
 const PASOS = [
-  { n: 1, titulo: 'Crea tu perfil', texto: 'Ingresa los datos de tu negocio, horarios y zona de servicio.' },
-  { n: 2, titulo: 'Muestra tu trabajo', texto: 'Sube fotos de tus mejores proyectos y tus datos de contacto.' },
-  { n: 3, titulo: '¡Recibe llamadas y mensajes!', texto: 'Los clientes te encuentran y te contactan directamente.' },
-];
+  ['01', 'Crea tu perfil', 'Ingresa los datos de tu negocio, horarios y zona de servicio.'],
+  ['02', 'Muestra tu trabajo', 'Sube fotos de tus mejores proyectos y los datos de contacto.'],
+  ['03', 'Recibe llamadas y mensajes', 'Los clientes te encuentran y te contactan directamente.'],
+] as const;
 
-// Landing para atraer proveedores (versión web)
+const HERRAMIENTAS = [
+  ['Perfil y servicios', 'Actualiza fotos, precios y modalidades.'],
+  ['Agenda y solicitudes', 'Revisa cada cita y propone otro horario.'],
+  ['Mensajes y reseñas', 'Responde con el contexto de cada cliente.'],
+] as const;
+
+// "Vista_Proveedor · Inicio mejorado": landing para atraer negocios
 export default function ProveedoresPage() {
-  const [enviado, setEnviado] = useState(false);
-  const { onSubmit, error, cargando } = useFormulario(async (datos) => {
-    await api('/proveedores/interesados', { method: 'POST', body: datos });
-    setEnviado(true);
-  });
+  const [usuario, setUsuario] = useState<Usuario | null>(null);
+  useEffect(() => setUsuario(getUsuario()), []);
+  const esNegocio = usuario?.rol === 'negocio';
 
   return (
     <div className="web-pagina">
-      <Cabecera />
+      <header className="web-cab">
+        <Link href="/" aria-label="Divika, inicio" className="web-cab__logo"><img src="/logo.png" alt="Divika" /></Link>
+        <nav className="web-cab__nav" aria-label="Secciones">
+          <Link href="/proveedores" className="web-cab__enlace web-cab__enlace--fuerte">Para negocios</Link>
+          <a href="#beneficios" className="web-cab__enlace">Beneficios</a>
+          <a href="#como-funciona" className="web-cab__enlace">Cómo funciona</a>
+        </nav>
+        <nav className="web-cab__links" aria-label="Principal">
+          <Link href="/" className="web-cab__enlace">Buscar un servicio</Link>
+          <Link href={esNegocio ? '/portal' : '/login/proveedores'} className="web-cab__boton">{esNegocio ? 'Mi portal' : 'Iniciar sesión'}</Link>
+        </nav>
+      </header>
 
-      <section className="web-prov">
-        <div className="web-prov__texto">
-          <h1>Lleva más clientes a tu negocio o servicio local</h1>
-          <p>
-            <strong className="rojo">Regístrate gratis</strong> en el directorio número uno de tu zona. Recibe solicitudes directas sin pagar comisiones abusivas.
-          </p>
-        </div>
-
-        <div className="web-prov__form">
-          <h2>Únete gratis a Divika</h2>
-          {enviado ? (
-            <>
-              <p className="web-prov__ok" role="status">¡Gracias! Recibimos tus datos y te contactaremos muy pronto.</p>
-              <Link href="/proveedores/registro" className="web-btn web-btn--oscuro web-btn--block web-prov__sigue">Crear mi cuenta ahora</Link>
-            </>
-          ) : (
-            <form onSubmit={onSubmit}>
-              <input name="nombreNegocio" required placeholder="Nombre de tu negocio o servicio" aria-label="Nombre de tu negocio o servicio" />
-              <input name="servicio" required placeholder="¿Qué servicio ofreces? (Ej: plomero, mecánico)" aria-label="Servicio que ofreces" />
-              <input name="telefono" required inputMode="tel" placeholder="Teléfono / WhatsApp" aria-label="Teléfono o WhatsApp" />
-              <input name="ciudad" required placeholder="Tu ciudad" aria-label="Tu ciudad" />
-              {error && <p className="form__error" role="alert">{error}</p>}
-              <button type="submit" className="web-btn web-btn--oscuro web-btn--block" disabled={cargando}>
-                {cargando ? 'Enviando…' : 'Registrar mi negocio'}
-              </button>
-              <p className="web-prov__otro">¿Prefieres crear tu cuenta ya? <Link href="/proveedores/registro">Empieza aquí</Link></p>
-            </form>
-          )}
-        </div>
-      </section>
-
-      <section className="web-blanca">
-        <h2>¿Por qué anunciarte en Divika?</h2>
-        <div className="web-motivos">
-          {MOTIVOS.map((m) => (
-            <article key={m.titulo} className="web-motivo">
-              <span className="web-motivo__icono" aria-hidden>{m.icono}</span>
-              <h3>{m.titulo}</h3>
-              <p>{m.texto}</p>
-            </article>
-          ))}
+      <section className="ini-hero">
+        <div className="ini-ancho ini-hero__grid">
+          <div className="ini-hero__texto">
+            <p className="ini-ceja">Tu talento merece ser visto</p>
+            <h1>Lleva más clientes a tu negocio o servicio local.</h1>
+            <p className="prov-desc">Regístrate gratis y conecta con personas de tu zona. Recibe solicitudes directas sin pagar comisiones abusivas.</p>
+            <div className="prov-botones">
+              <Link href={esNegocio ? '/portal' : '/proveedores/registro'} className="ini-btn">{esNegocio ? 'Ir a mi portal' : 'Registrar mi negocio'} <span aria-hidden>→</span></Link>
+              {!esNegocio && <Link href="/login/proveedores" className="prov-btn-borde">Ya tengo una cuenta</Link>}
+            </div>
+            <p className="prov-chico">Trato directo · Sin comisión · Tú decides cuándo publicar</p>
+          </div>
+          <aside className="prov-tarjeta">
+            <ImagenOpcional src="/web/proveedores.jpg" alt="Personas de distintos oficios trabajando" className="prov-tarjeta__img" />
+            <h2>Un espacio para tu negocio</h2>
+            <p>Muestra tus servicios, recibe mensajes y organiza tus citas desde un solo lugar.</p>
+            <small>Perfil · Servicios · Calendario · Reseñas</small>
+          </aside>
         </div>
       </section>
 
-      <section className="web-pasos">
-        <h2>Cómo funciona en 3 pasos</h2>
-        <ol>
-          {PASOS.map((p, i) => (
-            <li key={p.n}>
-              <span className="web-pasos__n">{p.n}</span>
-              <div><h3>{p.titulo}</h3><p>{p.texto}</p></div>
-              {i < PASOS.length - 1 && <span className="web-pasos__flecha" aria-hidden>→</span>}
-            </li>
+      <section className="ini-seccion" id="beneficios">
+        <div className="ini-ancho">
+          <h2>¿Por qué anunciarte en Divika?</h2>
+          <div className="prov-tarjetas">
+            {MOTIVOS.map(([n, t, d]) => (
+              <article key={n} className="prov-motivo"><span>{n}</span><h3>{t}</h3><p>{d}</p></article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="ini-pasos" id="como-funciona" aria-label="Cómo funciona">
+        <div className="ini-ancho"><h2 className="prov-h2">Cómo funciona en 3 pasos</h2></div>
+        <ol className="ini-ancho">
+          {PASOS.map(([n, t, d]) => (
+            <li key={n}><span className="ini-pasos__num">{n}</span><div><h3>{t}</h3><p>{d}</p></div></li>
           ))}
         </ol>
       </section>
 
-      <Pie />
+      <section className="ini-seccion">
+        <div className="ini-ancho">
+          <h2>Menos pendientes. Más tiempo para tu trabajo.</h2>
+          <div className="prov-tarjetas">
+            {HERRAMIENTAS.map(([t, d]) => (
+              <article key={t} className="prov-motivo prov-motivo--simple"><h3>{t}</h3><p>{d}</p></article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <BannerApp />
+      <PieSimple legal="El cobro de servicios se acuerda directamente con cada cliente." />
     </div>
   );
 }

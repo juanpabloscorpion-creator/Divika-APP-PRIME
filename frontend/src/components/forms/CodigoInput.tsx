@@ -9,10 +9,13 @@ export function CodigoInput({
   value,
   onChange,
   error,
+  cuadrado = false,
 }: {
   value: string;
   onChange: (valor: string) => void;
   error?: boolean;
+  // Casillas cuadradas lila del sitio web (diseño "Verificar código")
+  cuadrado?: boolean;
 }) {
   const refs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -48,7 +51,7 @@ export function CodigoInput({
   }
 
   return (
-    <div className="codigo" role="group" aria-label="Código de 4 dígitos">
+    <div className={cuadrado ? 'codigo codigo--web' : 'codigo'} role="group" aria-label="Código de 4 dígitos">
       {Array.from({ length: LARGO }, (_, i) => (
         <input
           key={i}
@@ -57,6 +60,7 @@ export function CodigoInput({
           }}
           className={error ? 'codigo__casilla codigo__casilla--error' : 'codigo__casilla'}
           inputMode="numeric"
+          placeholder={cuadrado ? '—' : undefined}
           autoComplete={i === 0 ? 'one-time-code' : 'off'}
           maxLength={LARGO}
           aria-label={`Dígito ${i + 1}`}

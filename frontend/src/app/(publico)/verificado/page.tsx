@@ -1,11 +1,12 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { ButtonLink } from '@/components/ui/Button';
-import { IconCheck } from '@/components/ui/icons';
+import { MarcoAcceso } from '@/components/web/MarcoAcceso';
 import { getToken } from '@/lib/auth';
 
+// "Web · Registro completado"
 export default function VerificadoPage() {
   const router = useRouter();
   const [listo, setListo] = useState(false);
@@ -18,15 +19,14 @@ export default function VerificadoPage() {
   if (!listo) return null;
 
   return (
-    <main className="screen screen--bienvenida">
-      <div className="screen__centro verificado">
-        <div className="verificado__sello"><IconCheck /></div>
-        <h1 className="titulo">Verificación completada</h1>
-        <p className="subtitulo">Tu registro está listo. Ya puedes acceder y explorar los servicios cerca de ti.</p>
-      </div>
-      <div className="acciones">
-        <ButtonLink href="/home" className="btn--block">Explorar servicios</ButtonLink>
-      </div>
-    </main>
+    <MarcoAcceso titulo="Tu registro está listo" sub="Ya puedes acceder a los servicios cerca de ti.">
+      <section className="acc-tarjeta acc-tarjeta--centro acc-listo">
+        <svg className="acc-listo__check" viewBox="0 0 24 24" width="36" height="36" aria-hidden><path d="M4 12.5l5 5L20 6.5" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        <h2>Verificación completada</h2>
+        <p>Tu cuenta de cliente está verificada. Guarda tus favoritos y consulta tus próximas reservaciones desde tu perfil.</p>
+        <Link href="/home" className="acc-btn">Explorar servicios <span aria-hidden>→</span></Link>
+        <Link href="/perfil" className="acc-enlace acc-enlace--fuerte">Ir a mi perfil</Link>
+      </section>
+    </MarcoAcceso>
   );
 }

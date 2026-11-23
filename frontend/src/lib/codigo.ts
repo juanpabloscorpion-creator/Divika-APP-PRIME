@@ -1,7 +1,8 @@
 import { api } from './api';
 
 export type Canal = 'sms' | 'email';
-export type CodigoPendiente = { canal: Canal; destino: string; proximoEnvio: number };
+// origen: 'registro' lleva a "Registro completado"; 'acceso' entra directo al sitio o al portal
+export type CodigoPendiente = { canal: Canal; destino: string; proximoEnvio: number; origen?: 'registro' | 'acceso' };
 
 const CLAVE = 'divika-codigo';
 
@@ -27,12 +28,12 @@ export function borrarPendiente() {
 }
 
 // Pide el código al backend y deja anotado cuándo se puede pedir otro
-export async function pedirCodigo(canal: Canal, destino: string) {
+export async function pedirCodigo(canal: Canal, destino: string, origen: 'registro' | 'acceso' = 'acceso') {
   const { segundosEspera } = await api<{ enviado: boolean; segundosEspera: number }>('/auth/codigo/enviar', {
     method: 'POST',
     body: { canal, destino },
   });
-  const pendiente = { canal, destino, proximoEnvio: Date.now() + segundosEspera * 1000 };
+  const pendiente: CodigoPendiente = { canal, destino, proximoEnvio: Date.now() + segundosEspera * 1000, origen };
   guardarPendiente(pendiente);
   return pendiente;
 }

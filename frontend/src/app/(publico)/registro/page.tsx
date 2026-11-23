@@ -1,26 +1,25 @@
-'use client';
-
 import Link from 'next/link';
 import { RegistroClienteForm } from '@/components/forms/RegistroClienteForm';
-import { Atras } from '@/components/layout/Atras';
-import { Logo } from '@/components/layout/Logo';
+import { MarcoAcceso } from '@/components/web/MarcoAcceso';
 
-// Registro de clientes. Los negocios se registran en /proveedores/registro (alta completa del proveedor)
+// "Web · Registro de clientes". Los negocios se registran en /proveedores/registro
 export default function RegistroPage() {
   return (
-    <main className="screen screen--pagina">
-      <Atras href="/" />
-      <Logo pequeno />
-      <div className="tabs">
-        <button type="button" aria-pressed>
-          Soy cliente
-        </button>
-        <Link href="/proveedores/registro">Tengo un negocio</Link>
+    <MarcoAcceso titulo="Crea tu cuenta de cliente" sub="Regístrate para guardar favoritos y organizar tus reservaciones.">
+      <div className="acc-dos acc-dos--form">
+        <section className="acc-tarjeta">
+          <RegistroClienteForm />
+        </section>
+        <aside className="acc-panel acc-panel--lista">
+          <h2>Una cuenta, todo más cerca.</h2>
+          <ol>
+            <li><span>01</span> Guarda tus lugares favoritos</li>
+            <li><span>02</span> Consulta tus citas y reservaciones</li>
+            <li><span>03</span> Administra tus preferencias</li>
+          </ol>
+          <Link href="/login" className="acc-enlace acc-enlace--fuerte">¿Ya tienes cuenta? Iniciar sesión</Link>
+        </aside>
       </div>
-      <RegistroClienteForm />
-      <p className="texto-aparte">
-        ¿Ya tienes cuenta? <Link href="/acceso">Inicia sesión</Link>
-      </p>
-    </main>
+    </MarcoAcceso>
   );
 }
