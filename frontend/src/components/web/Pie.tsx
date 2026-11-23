@@ -19,7 +19,7 @@ export function Pie() {
   return (
     <>
       <section className="web-banner">
-        <ImagenOpcional src="/web/banner-app.png" alt="Pareja usando la app de Divika" etiqueta="Imagen: banner-app.png" className="web-banner__img" />
+        <ImagenOpcional src="/web/banner-app.jpg" alt="Pareja usando la app de Divika" etiqueta="Imagen: banner-app.jpg" className="web-banner__img" />
         <div className="web-banner__texto">
           <h2><span>DIVIKA</span></h2>
           <p className="web-banner__lema">LA APP DE SERVICIOS</p>
