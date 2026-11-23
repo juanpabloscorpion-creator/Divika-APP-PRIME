@@ -1,4 +1,5 @@
 // Divika - Esquema completo: diagrama del equipo de backend (docs/divika.dbml) + tablas extra
+// Tablas extra en morado. Para verlo: pegar en https://dbdiagram.io/d
 
 Enum rol_usuario {
   consumidor
@@ -111,7 +112,7 @@ Table otp_codes {
   destination varchar(254) [not null, note: 'teléfono E.164 o email']
   code_hash text [not null]
   channel otp_channel [not null]
-  purpose varchar(30) [not null, note: 'login | signup | phone_verify']
+  purpose varchar(30) [not null, note: 'login | phone_verify | password_reset']
   attempts smallint [not null, default: 0]
   expires_at timestamptz [not null]
   consumed_at timestamptz
@@ -334,7 +335,7 @@ Enum estado_cita {
   cancelada
 }
 
-Table user_profiles {
+Table user_profiles [headercolor: #4B3F8F] {
   user_id uuid [pk, ref: - usuarios.id]
   birth_date date
   city varchar(100)
@@ -343,7 +344,7 @@ Table user_profiles {
   Note: 'Datos de "Editar perfil" que no caben en usuarios'
 }
 
-Table business_details {
+Table business_details [headercolor: #4B3F8F] {
   business_id uuid [pk, ref: - businesses.id]
   description varchar(600) [note: 'descripción larga del perfil']
   public_email varchar(254)
@@ -361,7 +362,7 @@ Table business_details {
   updated_at timestamptz [not null, default: `now()`]
 }
 
-Table services {
+Table services [headercolor: #4B3F8F] {
   id uuid [pk, default: `gen_random_uuid()`]
   business_id uuid [not null, ref: > businesses.id]
   name varchar(80) [not null]
@@ -377,7 +378,7 @@ Table services {
   created_at timestamptz [not null, default: `now()`]
 }
 
-Table appointments {
+Table appointments [headercolor: #4B3F8F] {
   id uuid [pk, default: `gen_random_uuid()`]
   business_id uuid [not null, ref: > businesses.id]
   client_id uuid [not null, ref: > usuarios.id]
@@ -398,7 +399,7 @@ Table appointments {
   }
 }
 
-Table messages {
+Table messages [headercolor: #4B3F8F] {
   id uuid [pk, default: `gen_random_uuid()`]
   business_id uuid [not null, ref: > businesses.id]
   client_id uuid [not null, ref: > usuarios.id]
@@ -411,7 +412,7 @@ Table messages {
   }
 }
 
-Table notifications {
+Table notifications [headercolor: #4B3F8F] {
   id uuid [pk, default: `gen_random_uuid()`]
   user_id uuid [not null, ref: > usuarios.id]
   type varchar(20) [not null, note: 'cita | mensaje | resena']
@@ -425,13 +426,13 @@ Table notifications {
   }
 }
 
-Table review_replies {
+Table review_replies [headercolor: #4B3F8F] {
   review_id uuid [pk, ref: - reviews.id]
   body text [not null]
   created_at timestamptz [not null, default: `now()`]
 }
 
-Table business_views {
+Table business_views [headercolor: #4B3F8F] {
   id bigserial [pk]
   business_id uuid [not null, ref: > businesses.id]
   created_at timestamptz [not null, default: `now()`]
@@ -440,7 +441,7 @@ Table business_views {
   }
 }
 
-Table support_reports {
+Table support_reports [headercolor: #4B3F8F] {
   id uuid [pk, default: `gen_random_uuid()`]
   user_id uuid [ref: > usuarios.id]
   type varchar(30) [not null]
@@ -448,7 +449,7 @@ Table support_reports {
   created_at timestamptz [not null, default: `now()`]
 }
 
-Table provider_leads {
+Table provider_leads [headercolor: #4B3F8F] {
   id uuid [pk, default: `gen_random_uuid()`]
   business_name varchar(120) [not null]
   service varchar(120) [not null]
@@ -456,4 +457,44 @@ Table provider_leads {
   city varchar(80) [not null]
   created_at timestamptz [not null, default: `now()`]
   Note: 'Formulario "Únete gratis" de la landing (sin cuenta)'
+}
+
+// ===== Grupos (dbdiagram los dibuja como recuadros) =====
+TableGroup cuentas [color: #2B2D6C] {
+  usuarios
+  autenticacion
+  otp_codes
+  refresh_tokens
+  device_tokens
+  user_profiles
+}
+TableGroup negocios [color: #1F5F9E] {
+  categories
+  businesses
+  business_addresses
+  business_categories
+  business_hours
+  business_photos
+  business_details
+  services
+}
+TableGroup verificacion [color: #ED5034] {
+  verification_requests
+  verification_documents
+  business_claims
+}
+TableGroup actividad [color: #38C96A] {
+  favorites
+  reviews
+  review_replies
+  contact_events
+  business_views
+  audit_log
+}
+TableGroup agenda_y_mensajes [color: #4B3F8F] {
+  appointments
+  messages
+  notifications
+  support_reports
+  provider_leads
 }
