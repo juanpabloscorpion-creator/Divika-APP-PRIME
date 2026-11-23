@@ -4,5 +4,5 @@ Pon aquí los archivos que entregue diseño. Mientras no existan, el sitio muest
 
 | Archivo | Dónde se usa |
 |---|---|
-| `hero.png` | Inicio web: personas de distintos oficios (lado derecho del título) |
+| `hero.jpg` | Inicio web: personas de distintos oficios (lado derecho del título) |
 | `banner-app.jpg` | Banner "La app de servicios" (pareja con celulares). Horizontal, 1720 × 520 px |

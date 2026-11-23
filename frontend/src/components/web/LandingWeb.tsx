@@ -45,7 +45,7 @@ export function LandingContenido() {
             <button type="submit">BUSCAR</button>
           </form>
         </div>
-        <ImagenOpcional src="/web/hero.png" alt="Profesionales de distintos oficios" etiqueta="Imagen: hero.png" className="web-hero__img" />
+        <ImagenOpcional src="/web/hero.jpg" alt="Profesionales de distintos oficios" etiqueta="Imagen: hero.jpg" className="web-hero__img" />
       </section>
 
       <section className="web-seccion">
