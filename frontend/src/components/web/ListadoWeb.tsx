@@ -16,7 +16,10 @@ const POR_PAGINA = 6;
 const SIN_LIMITE = 11;
 
 // Listado de la versión web: por categoría (slug) o por búsqueda libre (consulta)
-export function ListadoWeb({ slug, consulta = '' }: { slug?: string; consulta?: string }) {
+const sinAcentos = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+// ciudad: filtra por la ciudad o colonia del negocio (viene del buscador del inicio)
+export function ListadoWeb({ slug, consulta = '', ciudad = '' }: { slug?: string; consulta?: string; ciudad?: string }) {
   const { categorias } = useCategorias();
   const categoria = categorias.find((c) => c.slug === slug);
   const favs = useFavoritos();
@@ -67,7 +70,9 @@ export function ListadoWeb({ slug, consulta = '' }: { slug?: string; consulta?: 
   }, [datos, categoria]);
 
   const filtrados = useMemo(() => {
+    const lugar = sinAcentos(ciudad.trim());
     let l = datos.filter((n) =>
+      (!lugar || sinAcentos([n.ciudad, n.colonia, n.direccion].filter(Boolean).join(' ')).includes(lugar)) &&
       (subs.length === 0 || (n.subcategoria != null && subs.includes(n.subcategoria))) &&
       n.calificacion >= califMin &&
       (!abierto || abiertoAhora(n.horariosJson) === true) &&
@@ -77,13 +82,13 @@ export function ListadoWeb({ slug, consulta = '' }: { slug?: string; consulta?: 
     else if (orden === 'nombre') l = [...l].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
     else l = [...l].sort((a, b) => b.calificacion - a.calificacion);
     return l;
-  }, [datos, subs, califMin, abierto, domicilio, maxKm, orden, ubicacion]);
+  }, [datos, subs, califMin, abierto, domicilio, maxKm, orden, ubicacion, ciudad]);
 
   const paginas = Math.max(1, Math.ceil(filtrados.length / POR_PAGINA));
   const visibles = filtrados.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
   const hayFiltros = subs.length > 0 || califMin > 0 || abierto || domicilio || maxKm !== SIN_LIMITE;
   const restablecer = () => { setSubs([]); setCalifMin(0); setAbierto(false); setDomicilio(false); setMaxKm(SIN_LIMITE); };
-  const titulo = categoria?.nombre ?? (consulta ? `Resultados para “${consulta}”` : 'Todos los servicios');
+  const titulo = (categoria?.nombre ?? (consulta ? `Resultados para “${consulta}”` : 'Todos los servicios')) + (ciudad.trim() ? ` en ${ciudad.trim()}` : '');
 
   return (
     <div className="wa-ancho">

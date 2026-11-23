@@ -13,12 +13,10 @@ function Tiendas() {
   );
 }
 
-// Banner "La app de servicios" + pie de página, iguales en todo el sitio público
-export function Pie() {
-  const [aviso, setAviso] = useState('');
+// Banner "La app de servicios" (imagen armada con el arte del póster de Divika)
+export function BannerApp() {
   return (
-    <>
-      <section className="web-banner">
+    <section className="web-banner">
         <ImagenOpcional src="/web/banner-app.jpg" alt="Pareja usando la app de Divika" etiqueta="Imagen: banner-app.jpg" className="web-banner__img" />
         <div className="web-banner__texto">
           <h2><span>DIVIKA</span></h2>
@@ -26,8 +24,34 @@ export function Pie() {
           <p>Descarga la app para celular ya disponible</p>
           <Tiendas />
         </div>
-      </section>
+    </section>
+  );
+}
 
+// Pie sencillo (diseño "Inicio mejorado"): se usa en el inicio y en las pantallas del cliente
+export function PieSimple() {
+  return (
+    <footer className="wa-pie">
+      <div className="wa-pie__fila">
+        <span className="wa-pie__marca"><strong>DIVIKA</strong> Tu comunidad, más cerca.</span>
+        <nav className="wa-pie__links" aria-label="Pie de página">
+          <Link href="/perfil/soporte">Ayuda</Link>
+          <span>Privacidad</span>
+          <span>Términos</span>
+          <Link href="/perfil/soporte">Contacto</Link>
+        </nav>
+      </div>
+      <p className="wa-pie__legal">© 2026 DIVIKA · Negocios y datos de ejemplo. Confirma precios y disponibilidad con cada establecimiento.</p>
+    </footer>
+  );
+}
+
+// Banner + pie completo (con suscripción y enlaces para negocios): landing de proveedores
+export function Pie() {
+  const [aviso, setAviso] = useState('');
+  return (
+    <>
+      <BannerApp />
       <footer className="web-pie">
         <div className="web-pie__col web-pie__marca">
           <img src="/logo.png" alt="Divika" />

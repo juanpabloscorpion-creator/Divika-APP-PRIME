@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { createContext, ReactNode, useContext, useState } from 'react';
 import { ICONOS_CATEGORIA, ICONO_GENERICO } from '../home/categoriaIconos';
 import { Cabecera } from './Cabecera';
-import { Pie } from './Pie';
+import { BannerApp, PieSimple } from './Pie';
 import { useCategorias } from '@/lib/categorias';
 import { cx } from '@/lib/cx';
 
@@ -26,15 +26,6 @@ function BarraCategorias({ activa }: { activa: string | null }) {
   );
 }
 
-function PieSimple() {
-  return (
-    <footer className="wa-pie">
-      <span><strong>DIVIKA</strong> Tu comunidad, más cerca.</span>
-      <span className="wa-pie__links"><Link href="/perfil/soporte">Ayuda</Link><span>Privacidad</span><span>© 2026 DIVIKA</span></span>
-    </footer>
-  );
-}
-
 // Marco de escritorio de las pantallas del cliente con sesión: cabecera, barra de categorías y pie
 export function MarcoWeb({ children }: { children: ReactNode }) {
   const ruta = usePathname();
@@ -52,7 +43,8 @@ export function MarcoWeb({ children }: { children: ReactNode }) {
         <Cabecera variante={inicio ? 'inicio' : 'interior'} />
         {conBarra && <BarraCategorias activa={categoria ?? activaPantalla} />}
         <main className={cx('wa-contenido', !ancho && 'wa-contenido--estrecho')}>{children}</main>
-        {inicio ? <Pie /> : <PieSimple />}
+        {inicio && <BannerApp />}
+        <PieSimple />
       </div>
     </Ctx.Provider>
   );
